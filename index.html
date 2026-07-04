@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#185FA5">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="FinDiário">
+<title>Gestão Financeira Diária</title>
+<link rel="manifest" href="./manifest.json">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{min-height:100%;background:#0f1318;color:#e8edf5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+.topbar{position:sticky;top:0;z-index:100;background:rgba(15,19,24,.96);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,.07);padding:14px 20px;display:flex;align-items:center;gap:12px}
+.topbar-icon{width:36px;height:36px;border-radius:10px;background:#185FA5;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.topbar h1{font-size:16px;font-weight:600;color:#e8edf5}
+.topbar p{font-size:12px;color:#8a9ab5}
+.app{padding:20px;max-width:720px;margin:0 auto;padding-bottom:40px}
+.sec{font-size:11px;font-weight:600;color:#8a9ab5;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;display:flex;align-items:center;gap:7px}
+
+/* Visão anual */
+.anual-strip{background:#1a2030;border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:16px;margin-bottom:24px}
+.anual-strip-title{font-size:11px;font-weight:600;color:#8a9ab5;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between}
+.anual-months{display:grid;grid-template-columns:repeat(12,1fr);gap:4px}
+.am-col{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;border-radius:6px;padding:4px 2px;transition:background .12s}
+.am-col:hover{background:#222b3a}
+.am-col.atual{outline:2px solid #185FA5;outline-offset:1px;border-radius:6px}
+.am-lbl{font-size:10px;color:#5a6a80;white-space:nowrap}
+.am-bar-wrap{width:100%;height:36px;display:flex;flex-direction:column;justify-content:flex-end;gap:2px}
+.am-bar{width:100%;border-radius:2px;min-height:2px}
+.am-saldo{font-size:9px;font-variant-numeric:tabular-nums;text-align:center}
+
+/* Seletor de mês */
+.mes-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;background:#1a2030;border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:10px 14px}
+.mes-nav-btn{background:#222b3a;border:none;cursor:pointer;width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#8a9ab5;transition:all .12s;font-size:16px}
+.mes-nav-btn:hover{background:#2a3550;color:#e8edf5}
+.mes-label{font-size:16px;font-weight:600;color:#e8edf5;min-width:110px;text-align:center}
+.mes-hoje{font-size:11px;color:#378ADD;background:rgba(55,138,221,.12);padding:3px 10px;border-radius:99px;border:1px solid rgba(55,138,221,.25);cursor:pointer}
+
+/* Cards */
+.cards-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:24px}
+.metric-card{background:#1a2030;border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:14px 16px}
+.metric-card .lbl{font-size:11px;color:#8a9ab5;margin-bottom:5px;display:flex;align-items:center;gap:5px}
+.metric-card .dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.metric-card .val{font-size:17px;font-weight:600;font-variant-numeric:tabular-nums}
+.vg{color:#639922}.vr{color:#E24B4A}.vo{color:#BA7517}.vb{color:#378ADD}.vw{color:#e8edf5}
+
+/* Balão anual */
+.balao{background:#1a2030;border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:18px;margin-bottom:24px}
+.balao-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px}
+.balao-ttl{font-size:13px;font-weight:500;color:#8a9ab5;display:flex;align-items:center;gap:6px}
+.pbadge{font-size:11px;color:#5a6a80;background:#222b3a;padding:3px 10px;border-radius:99px;border:1px solid rgba(255,255,255,.07)}
+.tot-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:18px}
+.tot-card{background:#222b3a;border-radius:10px;padding:12px 14px}
+.tot-card .lbl{font-size:11px;color:#8a9ab5;margin-bottom:4px;display:flex;align-items:center;gap:5px}
+.tot-card .dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.tot-card .val{font-size:18px;font-weight:600;font-variant-numeric:tabular-nums}
+.cleg{display:flex;gap:16px;margin-bottom:8px}
+.cleg span{display:flex;align-items:center;gap:5px;font-size:12px;color:#8a9ab5}
+.csq{width:9px;height:9px;border-radius:2px;display:inline-block}
+
+/* Distribuição */
+.cbox{background:#1a2030;border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:18px;margin-bottom:24px}
+.clayout{display:grid;grid-template-columns:1fr 200px;gap:16px;align-items:center}
+.clist{display:flex;flex-direction:column;gap:2px;max-height:260px;overflow-y:auto;padding-right:2px}
+.clist::-webkit-scrollbar{width:3px}
+.clist::-webkit-scrollbar-thumb{background:#2a3550;border-radius:3px}
+.citem{display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:8px;cursor:default}
+.citem:hover{background:#222b3a}
+.cdot{width:9px;height:9px;border-radius:2px;flex-shrink:0}
+.cname{font-size:12px;color:#e8edf5;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cpct{font-size:11px;color:#8a9ab5;font-variant-numeric:tabular-nums;flex-shrink:0}
+
+/* Formulário */
+.fbox{background:#1a2030;border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:18px;margin-bottom:24px}
+.toggle-wrap{display:flex;background:#0f1318;border-radius:10px;padding:3px;margin-bottom:18px;width:fit-content;gap:2px;border:1px solid rgba(255,255,255,.07)}
+.tbtn{padding:7px 22px;border-radius:8px;border:none;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;transition:all .15s;background:transparent;color:#8a9ab5;display:flex;align-items:center;gap:6px}
+.tbtn.ae{background:#27500A;color:#97C459}
+.tbtn.as{background:#7a1f1f;color:#F48080}
+.tipo-row{display:flex;gap:16px;margin-bottom:14px}
+.rlbl{display:flex;align-items:center;gap:7px;font-size:14px;color:#8a9ab5;cursor:pointer}
+.rlbl input{accent-color:#378ADD;width:15px;height:15px}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.ff{display:flex;flex-direction:column;gap:5px;position:relative}
+.ff label{font-size:12px;color:#8a9ab5}
+.ff input,.ff select{padding:10px 12px;font-size:14px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:#222b3a;color:#e8edf5;font-family:inherit;outline:none;transition:border-color .15s;width:100%}
+.ff input:focus{border-color:#378ADD;box-shadow:0 0 0 2px rgba(55,138,221,.2)}
+.cbrow{display:flex;align-items:center;gap:9px;margin:10px 0 4px;font-size:13px;color:#8a9ab5}
+.cbrow input{accent-color:#378ADD;width:15px;height:15px}
+.badd{width:100%;padding:11px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;font-family:inherit;transition:background .15s;margin-top:8px;color:#fff}
+.badd.bs{background:#185FA5}.badd.bs:hover{background:#0C447C}
+.badd.be{background:#3B6D11}.badd.be:hover{background:#27500A}
+.fgrid{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px}
+.fchip{padding:6px 14px;border-radius:99px;border:1px solid rgba(255,255,255,.1);background:#222b3a;color:#8a9ab5;font-size:13px;cursor:pointer;font-family:inherit;transition:all .12s;display:flex;align-items:center;gap:5px}
+.fchip:hover{border-color:#639922;color:#e8edf5}
+.fchip.sel{background:#27500A;color:#97C459;border-color:#3B6D11}
+
+/* Autocomplete */
+.ac-row{display:flex;align-items:center;position:relative}
+.ac-row input{flex:1;padding-right:34px!important}
+.acx{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#5a6a80;display:none;padding:2px;font-size:14px;line-height:1;align-items:center;justify-content:center}
+.acx.on{display:flex}
+.acdd{position:absolute;top:calc(100% + 4px);left:0;right:0;background:#1a2030;border:1px solid rgba(255,255,255,.14);border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.45);z-index:300;max-height:220px;overflow-y:auto;display:none}
+.acdd.open{display:block}
+.acdd::-webkit-scrollbar{width:4px}
+.acdd::-webkit-scrollbar-thumb{background:#2a3550;border-radius:4px}
+.acit{padding:10px 14px;font-size:13px;color:#e8edf5;cursor:pointer;display:flex;align-items:center;gap:9px;border-bottom:1px solid rgba(255,255,255,.05)}
+.acit:last-child{border-bottom:none}
+.acit:hover,.acit.hi{background:#222b3a}
+.acit mark{background:none;color:#378ADD;font-weight:600}
+.acempty{padding:10px 14px;font-size:13px;color:#5a6a80;font-style:italic}
+
+/* Tabela */
+.tbox{background:#1a2030;border:1px solid rgba(255,255,255,.07);border-radius:14px;overflow:hidden}
+.thead{display:grid;grid-template-columns:68px 1fr 1fr 96px 80px 62px;gap:6px;padding:10px 16px;background:#222b3a;font-size:11px;color:#5a6a80;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+.trow{display:grid;grid-template-columns:68px 1fr 1fr 96px 80px 62px;gap:6px;padding:11px 16px;font-size:13px;color:#e8edf5;border-top:1px solid rgba(255,255,255,.05);align-items:center;transition:background .1s}
+.trow:hover{background:#1e2840}
+.bdg{display:inline-block;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:600}
+.bfx{background:rgba(24,95,165,.3);color:#7DB8F0}
+.bvr{background:rgba(59,109,17,.35);color:#97C459}
+.ben{background:rgba(29,158,117,.3);color:#5DCAA5}
+.ndot{width:8px;height:8px;border-radius:50%;background:#BA7517;display:inline-block}
+.act-btns{display:flex;gap:4px}
+.ibtn{background:none;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:5px;border-radius:6px;transition:all .1s;color:#5a6a80}
+.ibtn.edit:hover{background:rgba(59,109,17,.2);color:#97C459}
+.ibtn.del:hover{background:rgba(226,75,74,.2);color:#E24B4A}
+.ftag{font-size:11px;color:#5a6a80;display:flex;align-items:center;gap:3px}
+.spago{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:99px;font-size:11px;font-weight:600;cursor:pointer;border:none;font-family:inherit;transition:all .15s;background:rgba(59,109,17,.2);color:#97C459}
+.spago:hover{background:rgba(59,109,17,.35)}
+.spend{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:99px;font-size:11px;font-weight:600;cursor:pointer;border:none;font-family:inherit;transition:all .15s;background:rgba(226,75,74,.2);color:#F48080}
+.spend:hover{background:rgba(226,75,74,.35)}
+.trow.pago{opacity:.6}
+.prog-wrap{background:#1a2030;border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:14px 16px;margin-bottom:24px}
+.prog-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-size:13px;color:#8a9ab5}
+.prog-bar{height:10px;background:#222b3a;border-radius:99px;overflow:hidden}
+.prog-fill{height:100%;background:linear-gradient(90deg,#185FA5,#3B6D11);border-radius:99px;transition:width .4s ease}
+.prog-labels{display:flex;justify-content:space-between;margin-top:6px;font-size:11px}
+
+/* Modal */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:500;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal{background:#1a2030;border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:22px;width:100%;max-width:460px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.modal-title{font-size:15px;font-weight:600;color:#e8edf5;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between}
+.mclose{background:none;border:none;cursor:pointer;color:#5a6a80;font-size:22px;line-height:1;padding:0}
+.mclose:hover{color:#e8edf5}
+.mfrow{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.mactions{display:flex;gap:8px;margin-top:18px}
+.mcancel{flex:1;padding:10px;border:1px solid rgba(255,255,255,.1);background:transparent;border-radius:8px;font-size:14px;cursor:pointer;color:#8a9ab5;font-family:inherit}
+.mcancel:hover{background:#222b3a}
+.msave{flex:2;padding:10px;background:#185FA5;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;color:#fff;font-family:inherit}
+.msave:hover{background:#0C447C}
+
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);padding:10px 22px;border-radius:8px;font-size:13px;font-weight:500;z-index:999;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.4)}
+.toast.show{opacity:1}
+.ibnr{display:none;position:fixed;bottom:16px;left:16px;right:16px;max-width:700px;margin:0 auto;background:#185FA5;color:#fff;border-radius:12px;padding:14px 16px;align-items:center;gap:12px;box-shadow:0 4px 24px rgba(0,0,0,.5);z-index:200}
+.ibtn2{background:#fff;color:#185FA5;border:none;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer}
+.iclose{background:none;border:none;color:rgba(255,255,255,.7);cursor:pointer;font-size:22px;padding:0;line-height:1}
+
+@media(max-width:600px){
+  .cards-grid{grid-template-columns:1fr 1fr}
+  .clayout{grid-template-columns:1fr}.clist{max-height:140px}
+  .tot-row{grid-template-columns:1fr 1fr}
+  .frow,.mfrow{grid-template-columns:1fr}
+  .thead,.trow{grid-template-columns:66px 1fr 88px 58px 56px}.dcol{display:none}
+  .anual-months{grid-template-columns:repeat(6,1fr)}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-icon"><i class="ti ti-report-money" style="font-size:18px;color:#fff"></i></div>
+  <div style="flex:1"><h1>Gestão Financeira Diária</h1><p id="hsub">Carregando...</p></div>
+  <div id="sync-status" style="font-size:11px;display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:99px;background:#222b3a;border:1px solid rgba(255,255,255,.1)">
+    <span id="sync-dot" style="width:7px;height:7px;border-radius:50%;background:#8a9ab5;display:inline-block"></span>
+    <span id="sync-txt" style="color:#8a9ab5">--</span>
+  </div>
+</div>
+
+<div class="app">
+
+  <div class="sec"><i class="ti ti-calendar-stats"></i> Visão anual 2026</div>
+  <div class="anual-strip">
+    <div class="anual-strip-title">
+      <span>Entradas <span style="color:rgba(99,153,34,.9)">▬</span> &nbsp; Saídas <span style="color:rgba(226,75,74,.9)">▬</span></span>
+      <span id="anual-total" style="font-size:12px;font-weight:500;color:#e8edf5"></span>
+    </div>
+    <div class="anual-months" id="anual-months"></div>
+  </div>
+
+  <div class="mes-nav">
+    <button class="mes-nav-btn" onclick="mudaMes(-1)"><i class="ti ti-chevron-left"></i></button>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span class="mes-label" id="mes-label">—</span>
+      <span class="mes-hoje" onclick="voltaHoje()">Hoje</span>
+    </div>
+    <button class="mes-nav-btn" onclick="mudaMes(1)"><i class="ti ti-chevron-right"></i></button>
+  </div>
+
+  <div class="cards-grid" id="cards"></div>
+
+  <div class="sec"><i class="ti ti-trending-up"></i> Acumulado 2026</div>
+  <div class="balao">
+    <div class="balao-hdr">
+      <div class="balao-ttl"><i class="ti ti-trending-up" style="font-size:14px"></i> Entradas vs Saídas — ano até agora</div>
+      <span class="pbadge">Jan/26 → Mai/26</span>
+    </div>
+    <div class="tot-row">
+      <div class="tot-card"><div class="lbl"><span class="dot" style="background:#639922"></span>Total entradas</div><div class="val vg" id="te">—</div></div>
+      <div class="tot-card"><div class="lbl"><span class="dot" style="background:#E24B4A"></span>Total saídas</div><div class="val vr" id="ts">—</div></div>
+      <div class="tot-card"><div class="lbl"><span class="dot" style="background:#378ADD"></span>Saldo acumulado</div><div class="val" id="tsa">—</div></div>
+    </div>
+    <div class="cleg">
+      <span><span class="csq" style="background:rgba(99,153,34,.8)"></span>Entradas</span>
+      <span><span class="csq" style="background:rgba(226,75,74,.8)"></span>Saídas</span>
+    </div>
+    <div style="position:relative;width:100%;height:190px"><canvas id="barC"></canvas></div>
+  </div>
+
+  <div class="prog-wrap" id="prog-wrap">
+  <div class="prog-header">
+    <span id="prog-label">Progresso de pagamento</span>
+    <span id="prog-pct" style="font-weight:600;color:#378ADD">0%</span>
+  </div>
+  <div class="prog-bar"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
+  <div class="prog-labels">
+    <span id="prog-pago" style="color:#639922"></span>
+    <span id="prog-pend" style="color:#E24B4A"></span>
+  </div>
+</div>
+
+<div class="sec"><i class="ti ti-chart-pie"></i> Distribuição de despesas — <span id="mes-dist" style="color:#378ADD;text-transform:none;font-size:12px"></span></div>
+  <div class="cbox">
+    <div class="clayout">
+      <div style="position:relative;width:100%;height:260px"><canvas id="pieC"></canvas></div>
+      <div class="clist" id="clist"></div>
+    </div>
+  </div>
+
+  <div class="sec"><i class="ti ti-plus"></i> Novo lançamento</div>
+  <div class="fbox">
+    <div class="toggle-wrap">
+      <button class="tbtn" id="bte" onclick="setM('entrada')"><i class="ti ti-arrow-down-circle"></i> Entrada</button>
+      <button class="tbtn as" id="bts" onclick="setM('saida')"><i class="ti ti-arrow-up-circle"></i> Saída</button>
+    </div>
+    <div id="fsec" style="display:none;margin-bottom:14px">
+      <div style="font-size:12px;color:#8a9ab5;margin-bottom:8px">Forma de recebimento</div>
+      <div class="fgrid" id="fgrid"></div>
+    </div>
+    <div id="trow" class="tipo-row">
+      <label class="rlbl"><input type="radio" name="tipo" value="Variável" checked> Variável</label>
+      <label class="rlbl"><input type="radio" name="tipo" value="Fixo"> Fixo</label>
+    </div>
+    <div class="frow">
+      <div class="ff" id="acwrap">
+        <label id="lorig">Credor / Empresa</label>
+        <div class="ac-row">
+          <input type="text" id="ic" placeholder="Digite ou pesquise..." autocomplete="off" oninput="acF()" onkeydown="acK(event)" onfocus="acF()">
+          <button class="acx" id="acxb" onclick="acCl()"><i class="ti ti-x" style="font-size:12px"></i></button>
+        </div>
+        <div class="acdd" id="acdd"></div>
+      </div>
+      <div class="ff"><label>Descrição</label><input type="text" id="idd" placeholder="ex: Cartão de crédito"></div>
+    </div>
+    <div class="ff" style="margin-bottom:10px">
+      <label>Valor (R$)</label>
+      <input type="number" id="iv" placeholder="0,00" step="0.01" min="0" inputmode="decimal" style="max-width:200px">
+    </div>
+    <div class="cbrow" id="cbrow">
+      <input type="checkbox" id="chk">
+      <label for="chk">Repete no próximo mês?</label>
+    </div>
+    <button class="badd bs" id="badd" onclick="addL()">
+      <i class="ti ti-plus"></i> <span id="blbl">Adicionar saída</span>
+    </button>
+  </div>
+
+  <div class="sec"><i class="ti ti-list"></i> Lançamentos — <span id="mes-tab" style="color:#378ADD;text-transform:none;font-size:12px"></span></div>
+  <div class="tbox">
+    <div class="thead"><span>Tipo</span><span>Credor</span><span class="dcol">Descrição</span><span>Valor</span><span>Status</span><span>Ações</span></div>
+    <div id="tbody"></div>
+  </div>
+
+</div>
+
+<!-- Modal edição -->
+<div class="overlay" id="modal" style="display:none" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-title">
+      <span><i class="ti ti-pencil" style="font-size:15px;margin-right:6px"></i>Editar lançamento</span>
+      <button class="mclose" onclick="closeModal()">×</button>
+    </div>
+    <div class="mfrow">
+      <div class="ff"><label>Credor / Origem</label><input type="text" id="m-c"></div>
+      <div class="ff"><label>Descrição</label><input type="text" id="m-d"></div>
+    </div>
+    <div class="ff" style="margin-bottom:12px">
+      <label>Valor (R$)</label>
+      <input type="number" id="m-v" step="0.01" min="0" inputmode="decimal" style="max-width:200px">
+    </div>
+    <div id="m-trow" class="tipo-row">
+      <label class="rlbl"><input type="radio" name="mtipo" value="Variável"> Variável</label>
+      <label class="rlbl"><input type="radio" name="mtipo" value="Fixo"> Fixo</label>
+    </div>
+    <div class="cbrow" id="m-crow">
+      <input type="checkbox" id="m-p">
+      <label for="m-p">Repete no próximo mês?</label>
+    </div>
+    <div class="mactions">
+      <button class="mcancel" onclick="closeModal()">Cancelar</button>
+      <button class="msave" onclick="saveEdit()"><i class="ti ti-check"></i> Salvar alterações</button>
+    </div>
+  </div>
+</div>
+
+<div class="ibnr" id="ibnr">
+  <p style="flex:1;font-size:13px;font-weight:500">📲 Instalar app no dispositivo</p>
+  <button class="ibtn2" id="ibtn2">Instalar</button>
+  <button class="iclose" onclick="document.getElementById('ibnr').style.display='none'">×</button>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+if('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js'));
+let dp=null;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();dp=e;document.getElementById('ibnr').style.display='flex'});
+document.getElementById('ibtn2').addEventListener('click',()=>{if(dp){dp.prompt();dp=null}document.getElementById('ibnr').style.display='none'});
+
+const CREDS=["Ana","Andre","Carro","Casa","Claro","Consorcio","Cris","Empresa","Gloria","Juan","MEI","Mercado Livre","Nubank","Nubank Empres","Nubank PJ","Paula","Regi","Samuel","Totoi","Uber","Uber/99"];
+const NM=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+const FORMAS=[{id:'pix',l:'Pix',ic:'ti-brand-mastercard'},{id:'dinheiro',l:'Dinheiro',ic:'ti-cash'},{id:'ted',l:'TED/DOC',ic:'ti-building-bank'},{id:'deposito',l:'Depósito',ic:'ti-piggy-bank'},{id:'cartao',l:'Cartão',ic:'ti-credit-card'},{id:'boleto',l:'Boleto',ic:'ti-receipt'},{id:'cripto',l:'Cripto',ic:'ti-currency-bitcoin'}];
+const COLS=['#378ADD','#1D9E75','#D85A30','#534AB7','#BA7517','#D4537E','#639922','#E24B4A','#0F6E56','#993C1D','#7F77DD','#5DCAA5','#EF9F27'];
+let ci=0; function nC(){return COLS[ci++%COLS.length];}
+let fs='pix';
+function bFC(){document.getElementById('fgrid').innerHTML=FORMAS.map(f=>`<button class="fchip${f.id===fs?' sel':''}" onclick="sF('${f.id}')"><i class="ti ${f.ic}" style="font-size:13px"></i> ${f.l}</button>`).join('');}
+function sF(id){fs=id;bFC();}
+
+let mesAtual=4, anoAtual=2026;
+function mk(a,m){return `${a}-${String(m+1).padStart(2,'0')}`;}
+
+
+// ══════════════════════════════════════════════
+//  FIREBASE — Sincronização em tempo real
+// ══════════════════════════════════════════════
+const FB_CONFIG = {
+  apiKey:            "AIzaSyCUUDp1_glOQtX5typbNqBYwH5xTtoRAdg",
+  authDomain:        "medvisit-7a564.firebaseapp.com",
+  databaseURL:       "https://medvisit-7a564-default-rtdb.firebaseio.com",
+  projectId:         "medvisit-7a564",
+  storageBucket:     "medvisit-7a564.firebasestorage.app",
+  messagingSenderId: "842990470415",
+  appId:             "1:842990470415:web:9be747a046169f078fea7a"
+};
+
+let fbRef = null;
+let isSyncing = false;
+
+function setSyncStatus(state) {
+  const dot = document.getElementById('sync-dot');
+  const txt = document.getElementById('sync-txt');
+  if (!dot) return;
+  if (state === 'ok')      { dot.style.background='#639922'; txt.textContent='Salvo'; txt.style.color='#639922'; }
+  else if (state === 'saving') { dot.style.background='#BA7517'; txt.textContent='Salvando...'; txt.style.color='#BA7517'; }
+  else if (state === 'err')    { dot.style.background='#E24B4A'; txt.textContent='Offline'; txt.style.color='#E24B4A'; }
+  else                         { dot.style.background='#8a9ab5'; txt.textContent='--'; txt.style.color='#8a9ab5'; }
+}
+
+function initFB() {
+  try {
+    firebase.initializeApp(FB_CONFIG);
+    fbRef = firebase.database().ref('financeiro/dados');
+    return true;
+  } catch(e) { return false; }
+}
+
+function fbLoad(callback) {
+  if (!initFB()) { callback(null); return; }
+  setSyncStatus('saving');
+  fbRef.once('value').then(snap => {
+    const data = snap.val();
+    callback(data);
+    // Listener tempo real
+    fbRef.on('value', snap2 => {
+      if (isSyncing) return;
+      const d = snap2.val();
+      if (d && d.todosDados) {
+        todosDados = d.todosDados;
+        setSyncStatus('ok');
+        rAll();
+      }
+    });
+  }).catch(() => { setSyncStatus('err'); callback(null); });
+}
+
+function fbSave() {
+  if (!fbRef) return;
+  isSyncing = true;
+  setSyncStatus('saving');
+  fbRef.set({ todosDados })
+    .then(() => { setSyncStatus('ok'); setTimeout(()=>{ isSyncing=false; }, 800); })
+    .catch(() => { setSyncStatus('err'); isSyncing=false; });
+}
+// ══════════════════════════════════════════════
+
+let todosDados={"2025-06": [{"modo": "saida", "t": "Variável", "c": "Mercado Livre", "d": "Cartao", "v": 290.0, "p": false, "cor": "#378ADD"}, {"modo": "saida", "t": "Variável", "c": "Mercado Livre", "d": "Cartao", "v": 290.9, "p": false, "cor": "#1D9E75"}, {"modo": "saida", "t": "Variável", "c": "Nubank", "d": "Cartao", "v": 1634.0, "p": false, "cor": "#D85A30"}, {"modo": "saida", "t": "Variável", "c": "Gloria", "d": "Emprestimo", "v": 1700.0, "p": false, "cor": "#534AB7"}, {"modo": "saida", "t": "Variável", "c": "Totoi", "d": "Cartao", "v": 500.0, "p": false, "cor": "#BA7517"}, {"modo": "saida", "t": "Fixo", "c": "Carro", "d": "Financiamento 6/48", "v": 2045.54, "p": true, "cor": "#D4537E"}, {"modo": "saida", "t": "Variável", "c": "Mercado Livre", "d": "Emprestimo", "v": 485.8, "p": false, "cor": "#639922"}, {"modo": "saida", "t": "Variável", "c": "Mercado Livre", "d": "Cartao", "v": 501.91, "p": false, "cor": "#E24B4A"}, {"modo": "saida", "t": "Variável", "c": "Mercado Livre", "d": "EMPRESTIMO 1-3/6", "v": 197.4, "p": false, "cor": "#0F6E56"}, {"modo": "saida", "t": "Variável", "c": "Mercado Livre", "d": "EMPRESTIMO 2-5/12", "v": 159.59, "p": false, "cor": "#993C1D"}, {"modo": "saida", "t": "Variável", "c": "Mercado Livre", "d": "EMPRESTIMO 3-4/12", "v": 148.0, "p": false, "cor": "#7F77DD"}, {"modo": "saida", "t": "Variável", "c": "Mercado Livre", "d": "EMPRESTIMO 5-3/12", "v": 142.49, "p": false, "cor": "#5DCAA5"}, {"modo": "saida", "t": "Variável", "c": "Mercado Livre", "d": "COMPRAS 3/3", "v": 12.71, "p": false, "cor": "#EF9F27"}, {"modo": "saida", "t": "Fixo", "c": "Ana", "d": "Pensao", "v": 400.0, "p": true, "cor": "#378ADD"}, {"modo": "saida", "t": "Variável", "c": "Ana", "d": "ENEM", "v": 80.0, "p": false, "cor": "#1D9E75"}], "2025-07": [{"modo": "saida", "t": "Variável", "c": "Nubank PJ", "d": "Cartao 1/2", "v": 1307.34, "p": false, "cor": "#D85A30"}, {"modo": "saida", "t": "Fixo", "c": "Nubank Empres", "d": "Emprestimo 1/5", "v": 1175.12, "p": true, "cor": "#534AB7"}, {"modo": "saida", "t": "Variável", "c": "Nubank", "d": "Cartao", "v": 973.48, "p": false, "cor": "#BA7517"}, {"modo": "saida", "t": "Variável", "c": "Nubank PJ", "d": "Cartao 2/2", "v": 1275.52, "p": false, "cor": "#D4537E"}, {"modo": "saida", "t": "Fixo", "c": "Claro", "d": "Telefone", "v": 323.0, "p": true, "cor": "#639922"}, {"modo": "saida", "t": "Fixo", "c": "Casa", "d": "Aluguel", "v": 461.68, "p": true, "cor": "#E24B4A"}, {"modo": "saida", "t": "Variável", "c": "Carro", "d": "Abastecimento", "v": 185.22, "p": false, "cor": "#0F6E56"}, {"modo": "saida", "t": "Variável", "c": "Carro", "d": "Dra Adrianne -Recurso", "v": 1500.0, "p": false, "cor": "#993C1D"}], "2025-08": [{"modo": "saida", "t": "Variável", "c": "Nubank", "d": "Cartao", "v": 1479.34, "p": false, "cor": "#7F77DD"}, {"modo": "saida", "t": "Variável", "c": "Nubank PJ", "d": "Cartao 1/2", "v": 1674.13, "p": false, "cor": "#5DCAA5"}, {"modo": "saida", "t": "Variável", "c": "Juan", "d": "Emprestimo 6/6", "v": 7800.0, "p": false, "cor": "#EF9F27"}, {"modo": "saida", "t": "Variável", "c": "Nubank Empres", "d": "Emprestimo 2/5", "v": 1175.12, "p": false, "cor": "#378ADD"}, {"modo": "saida", "t": "Fixo", "c": "Carro", "d": "Financiamento 7/48", "v": 1987.24, "p": true, "cor": "#1D9E75"}], "2025-09": [{"modo": "saida", "t": "Fixo", "c": "Nubank", "d": "Seguro Vida", "v": 64.96, "p": true, "cor": "#D85A30"}, {"modo": "saida", "t": "Fixo", "c": "Nubank Empres", "d": "Emprestimo 3/5", "v": 1176.12, "p": true, "cor": "#534AB7"}, {"modo": "saida", "t": "Variável", "c": "Nubank PJ", "d": "Cartao 1/2", "v": 1850.0, "p": false, "cor": "#BA7517"}, {"modo": "saida", "t": "Variável", "c": "Nubank", "d": "Cartao", "v": 1599.6, "p": false, "cor": "#D4537E"}, {"modo": "saida", "t": "Fixo", "c": "Carro", "d": "Financiamento 8/48", "v": 2000.0, "p": true, "cor": "#639922"}, {"modo": "saida", "t": "Fixo", "c": "Ana", "d": "Pensao", "v": 400.0, "p": true, "cor": "#E24B4A"}, {"modo": "saida", "t": "Variável", "c": "Totoi", "d": "Cartao Emprestimo", "v": 1500.0, "p": false, "cor": "#0F6E56"}, {"modo": "saida", "t": "Fixo", "c": "Casa", "d": "Aluguel", "v": 461.68, "p": true, "cor": "#993C1D"}, {"modo": "saida", "t": "Fixo", "c": "Claro", "d": "Telefone", "v": 341.33, "p": true, "cor": "#7F77DD"}, {"modo": "saida", "t": "Variável", "c": "Carro", "d": "Documento", "v": 2863.2, "p": false, "cor": "#5DCAA5"}], "2025-10": [{"modo": "saida", "t": "Fixo", "c": "Nubank", "d": "Seguro Vida", "v": 64.96, "p": true, "cor": "#EF9F27"}, {"modo": "saida", "t": "Variável", "c": "Nubank", "d": "Cartao", "v": 1599.6, "p": false, "cor": "#378ADD"}, {"modo": "saida", "t": "Variável", "c": "Nubank PJ", "d": "Cartao 1/2", "v": 2483.0, "p": false, "cor": "#1D9E75"}, {"modo": "saida", "t": "Variável", "c": "Paula", "d": "Cartao Crédito", "v": 851.0, "p": false, "cor": "#D85A30"}, {"modo": "saida", "t": "Fixo", "c": "Nubank Empres", "d": "Emprestimo 4/5", "v": 1176.12, "p": true, "cor": "#534AB7"}, {"modo": "saida", "t": "Fixo", "c": "Carro", "d": "Financiamento 9/48", "v": 1987.0, "p": true, "cor": "#BA7517"}, {"modo": "saida", "t": "Fixo", "c": "Ana", "d": "Pensao (passagem+viagem)", "v": 600.0, "p": true, "cor": "#D4537E"}, {"modo": "saida", "t": "Fixo", "c": "Claro", "d": "Telefone", "v": 341.43, "p": true, "cor": "#639922"}, {"modo": "saida", "t": "Fixo", "c": "Casa", "d": "Aluguel", "v": 607.0, "p": true, "cor": "#E24B4A"}], "2025-11": [{"modo": "entrada", "t": "Entrada", "c": "Empresa", "d": "Pagamento", "v": 5598.29, "p": false, "cor": "#639922", "f": "pix"}, {"modo": "entrada", "t": "Entrada", "c": "Andre", "d": "Pagamento", "v": 4000.0, "p": false, "cor": "#639922", "f": "pix"}, {"modo": "entrada", "t": "Entrada", "c": "Uber", "d": "Pagamento", "v": 178.43, "p": false, "cor": "#639922", "f": "pix"}, {"modo": "saida", "t": "Variável", "c": "Paula", "d": "Cartao Crédito", "v": 2250.0, "p": false, "cor": "#0F6E56"}, {"modo": "saida", "t": "Fixo", "c": "Nubank", "d": "Seguro Vida", "v": 64.96, "p": true, "cor": "#993C1D"}, {"modo": "saida", "t": "Fixo", "c": "Nubank Empres", "d": "Emprestimo 1/3", "v": 434.92, "p": true, "cor": "#7F77DD"}, {"modo": "saida", "t": "Variável", "c": "Nubank PJ", "d": "Cartao", "v": 2311.84, "p": false, "cor": "#5DCAA5"}, {"modo": "saida", "t": "Variável", "c": "Nubank", "d": "Cartao", "v": 1142.53, "p": false, "cor": "#EF9F27"}, {"modo": "saida", "t": "Fixo", "c": "Carro", "d": "Financiamento 10/48", "v": 1987.0, "p": true, "cor": "#378ADD"}, {"modo": "saida", "t": "Fixo", "c": "Ana", "d": "Pensao", "v": 400.0, "p": true, "cor": "#1D9E75"}, {"modo": "saida", "t": "Fixo", "c": "Claro", "d": "Telefone", "v": 341.43, "p": true, "cor": "#D85A30"}, {"modo": "saida", "t": "Fixo", "c": "Casa", "d": "Aluguel", "v": 607.0, "p": true, "cor": "#534AB7"}], "2025-12": [{"modo": "entrada", "t": "Entrada", "c": "Empresa", "d": "Pagamento", "v": 5598.29, "p": false, "cor": "#639922", "f": "pix"}, {"modo": "entrada", "t": "Entrada", "c": "Empresa", "d": "Pagamento Despesas Viagem", "v": 225.0, "p": false, "cor": "#639922", "f": "pix"}, {"modo": "entrada", "t": "Entrada", "c": "Empresa", "d": "Pagamento Programa", "v": 2000.0, "p": false, "cor": "#639922", "f": "pix"}, {"modo": "entrada", "t": "Entrada", "c": "Andre", "d": "Pagamento", "v": 4000.0, "p": false, "cor": "#639922", "f": "pix"}, {"modo": "entrada", "t": "Entrada", "c": "Uber", "d": "Pagamento", "v": 596.43, "p": false, "cor": "#639922", "f": "pix"}, {"modo": "saida", "t": "Fixo", "c": "Carro", "d": "Financiamento 11/48", "v": 1987.0, "p": true, "cor": "#BA7517"}, {"modo": "saida", "t": "Fixo", "c": "Ana", "d": "Pensao", "v": 200.0, "p": true, "cor": "#D4537E"}, {"modo": "saida", "t": "Fixo", "c": "Ana", "d": "Pensao Passagem", "v": 100.0, "p": true, "cor": "#639922"}, {"modo": "saida", "t": "Fixo", "c": "Juan", "d": "TV 1/5", "v": 1500.0, "p": true, "cor": "#E24B4A"}, {"modo": "saida", "t": "Fixo", "c": "Casa", "d": "Aluguel", "v": 741.05, "p": true, "cor": "#0F6E56"}, {"modo": "saida", "t": "Fixo", "c": "Gloria", "d": "Emprestimo", "v": 50.0, "p": true, "cor": "#993C1D"}, {"modo": "saida", "t": "Fixo", "c": "Samuel", "d": "Emprestimo", "v": 250.0, "p": true, "cor": "#7F77DD"}, {"modo": "saida", "t": "Fixo", "c": "Casa", "d": "TV", "v": 31.05, "p": true, "cor": "#5DCAA5"}, {"modo": "saida", "t": "Fixo", "c": "MEI", "d": "Guia Janeiro/Fevereiro", "v": 210.74, "p": true, "cor": "#EF9F27"}], "2026-01": [{"modo": "entrada", "t": "Entrada", "c": "Empresa", "d": "Pagamento", "v": 5000.0, "p": false, "cor": "#639922", "f": "pix"}, {"modo": "entrada", "t": "Entrada", "c": "Empresa", "d": "Comissao", "v": 1186.35, "p": false, "cor": "#639922", "f": "pix"}, {"modo": "entrada", "t": "Entrada", "c": "Uber", "d": "Pagamento", "v": 623.38, "p": false, "cor": "#639922", "f": "pix"}, {"modo": "saida", "t": "Variável", "c": "Paula", "d": "Cartao Crédito", "v": 1366.67, "p": false, "cor": "#378ADD"}, {"modo": "saida", "t": "Fixo", "c": "Nubank", "d": "Seguro Vida", "v": 64.96, "p": true, "cor": "#1D9E75"}, {"modo": "saida", "t": "Fixo", "c": "Nubank Empres", "d": "Emprestimo 2/3", "v": 434.92, "p": true, "cor": "#D85A30"}, {"modo": "saida", "t": "Variável", "c": "Nubank PJ", "d": "Cartao 1/3", "v": 1941.6, "p": false, "cor": "#534AB7"}, {"modo": "saida", "t": "Variável", "c": "Nubank", "d": "Cartao", "v": 1285.9, "p": false, "cor": "#BA7517"}, {"modo": "saida", "t": "Fixo", "c": "Carro", "d": "Financiamento 12/48", "v": 1987.0, "p": true, "cor": "#D4537E"}, {"modo": "saida", "t": "Fixo", "c": "Ana", "d": "Pensao", "v": 400.0, "p": true, "cor": "#639922"}, {"modo": "saida", "t": "Fixo", "c": "Claro", "d": "Telefone (Dezembro)", "v": 338.84, "p": true, "cor": "#E24B4A"}, {"modo": "saida", "t": "Fixo", "c": "Casa", "d": "Aluguel", "v": 960.0, "p": true, "cor": "#0F6E56"}, {"modo": "saida", "t": "Variável", "c": "Carro", "d": "Abastecimento", "v": 795.86, "p": false, "cor": "#993C1D"}], "2026-02": [{"modo": "entrada", "t": "Entrada", "c": "Empresa", "d": "Pagamento", "v": 6124.0, "p": false, "cor": "#639922", "f": "pix"}, {"modo": "entrada", "t": "Entrada", "c": "Empresa", "d": "Despesa Viagem", "v": 400.79, "p": false, "cor": "#639922", "f": "pix"}, {"modo": "entrada", "t": "Entrada", "c": "Uber/99", "d": "Pagamento", "v": 1781.56, "p": false, "cor": "#639922", "f": "pix"}, {"modo": "entrada", "t": "Entrada", "c": "Andre", "d": "Pagamento", "v": 4000.0, "p": false, "cor": "#639922", "f": "pix"}, {"modo": "saida", "t": "Variável", "c": "Paula", "d": "Cartao Crédito", "v": 1758.2, "p": false, "cor": "#7F77DD"}, {"modo": "saida", "t": "Fixo", "c": "Nubank", "d": "Seguro Vida", "v": 64.96, "p": true, "cor": "#5DCAA5"}, {"modo": "saida", "t": "Fixo", "c": "Nubank Empres", "d": "Emprestimo 3/3", "v": 434.92, "p": true, "cor": "#EF9F27"}, {"modo": "saida", "t": "Variável", "c": "Nubank PJ", "d": "Cartao", "v": 1919.15, "p": false, "cor": "#378ADD"}, {"modo": "saida", "t": "Variável", "c": "Nubank", "d": "Cartao", "v": 1486.74, "p": false, "cor": "#1D9E75"}, {"modo": "saida", "t": "Fixo", "c": "Carro", "d": "Financiamento 13/48", "v": 1987.0, "p": true, "cor": "#D85A30"}, {"modo": "saida", "t": "Variável", "c": "Carro", "d": "Abastecimento", "v": 815.96, "p": false, "cor": "#534AB7"}, {"modo": "saida", "t": "Fixo", "c": "Ana", "d": "Pensao", "v": 400.0, "p": true, "cor": "#BA7517"}, {"modo": "saida", "t": "Fixo", "c": "Claro", "d": "Telefone", "v": 341.43, "p": true, "cor": "#D4537E"}, {"modo": "saida", "t": "Fixo", "c": "Claro", "d": "Telefone Janeiro", "v": 341.43, "p": true, "cor": "#639922"}, {"modo": "saida", "t": "Fixo", "c": "Casa", "d": "Aluguel", "v": 829.37, "p": true, "cor": "#E24B4A"}, {"modo": "saida", "t": "Fixo", "c": "Juan", "d": "TV 2/2", "v": 1250.0, "p": true, "cor": "#0F6E56"}, {"modo": "saida", "t": "Fixo", "c": "Samuel", "d": "Cartao", "v": 555.0, "p": true, "cor": "#993C1D"}], "2026-03": [{"modo": "entrada", "t": "Entrada", "c": "Empresa", "d": "Pagamento", "v": 5000.0, "p": false, "cor": "#639922", "f": "pix"}, {"modo": "saida", "t": "Variável", "c": "Paula", "d": "Cartao Crédito Ipva 2/3", "v": 1915.0, "p": false, "cor": "#7F77DD"}, {"modo": "saida", "t": "Fixo", "c": "Nubank", "d": "Seguro Vida", "v": 64.96, "p": true, "cor": "#5DCAA5"}, {"modo": "saida", "t": "Variável", "c": "Nubank PJ", "d": "Cartao", "v": 2375.95, "p": false, "cor": "#EF9F27"}, {"modo": "saida", "t": "Variável", "c": "Nubank", "d": "Cartao", "v": 1703.75, "p": false, "cor": "#378ADD"}, {"modo": "saida", "t": "Fixo", "c": "Carro", "d": "Financiamento 14/48", "v": 1987.0, "p": true, "cor": "#1D9E75"}, {"modo": "saida", "t": "Fixo", "c": "Ana", "d": "Pensao", "v": 400.0, "p": true, "cor": "#D85A30"}, {"modo": "saida", "t": "Fixo", "c": "Claro", "d": "Telefone", "v": 341.43, "p": true, "cor": "#534AB7"}, {"modo": "saida", "t": "Fixo", "c": "Claro", "d": "Telefone Janeiro", "v": 341.43, "p": true, "cor": "#BA7517"}, {"modo": "saida", "t": "Fixo", "c": "Casa", "d": "Aluguel", "v": 830.0, "p": true, "cor": "#D4537E"}, {"modo": "saida", "t": "Fixo", "c": "Samuel", "d": "Cartao", "v": 71.59, "p": true, "cor": "#639922"}], "2026-04": [{"modo": "entrada", "t": "Entrada", "c": "Empresa", "d": "Pagamento", "v": 7407.29, "p": false, "cor": "#639922", "f": "pix"}, {"modo": "saida", "t": "Variável", "c": "Paula", "d": "Cartao Crédito Ipva 3/3", "v": 1925.86, "p": false, "cor": "#E24B4A"}, {"modo": "saida", "t": "Fixo", "c": "Nubank", "d": "Seguro Vida", "v": 64.96, "p": true, "cor": "#0F6E56"}, {"modo": "saida", "t": "Variável", "c": "Nubank PJ", "d": "Cartao", "v": 2115.87, "p": false, "cor": "#993C1D"}, {"modo": "saida", "t": "Variável", "c": "Nubank", "d": "Cartao", "v": 1608.26, "p": false, "cor": "#7F77DD"}, {"modo": "saida", "t": "Variável", "c": "Nubank", "d": "Emprestimo", "v": 230.48, "p": false, "cor": "#5DCAA5"}, {"modo": "saida", "t": "Fixo", "c": "Carro", "d": "Financiamento 15/48", "v": 1987.0, "p": true, "cor": "#EF9F27"}, {"modo": "saida", "t": "Fixo", "c": "Ana", "d": "Pensao", "v": 400.0, "p": true, "cor": "#378ADD"}, {"modo": "saida", "t": "Fixo", "c": "Claro", "d": "Telefone", "v": 339.0, "p": true, "cor": "#1D9E75"}, {"modo": "saida", "t": "Fixo", "c": "Casa", "d": "Aluguel", "v": 798.1, "p": true, "cor": "#D85A30"}, {"modo": "saida", "t": "Fixo", "c": "Cris", "d": "Monj", "v": 360.0, "p": true, "cor": "#534AB7"}, {"modo": "saida", "t": "Fixo", "c": "Consorcio", "d": "Craudim", "v": 100.0, "p": true, "cor": "#BA7517"}], "2026-05": [{"modo": "entrada", "t": "Entrada", "c": "Empresa", "d": "Pagamento", "v": 12895.99, "p": false, "cor": "#639922", "f": "pix"}, {"modo": "entrada", "t": "Entrada", "c": "Uber/99", "d": "Pagamento", "v": 426.67, "p": false, "cor": "#639922", "f": "pix"}, {"modo": "entrada", "t": "Entrada", "c": "Regi", "d": "Pagamento", "v": 6500.0, "p": false, "cor": "#639922", "f": "pix"}, {"modo": "saida", "t": "Fixo", "c": "Nubank", "d": "Seguro Vida", "v": 64.96, "p": true, "cor": "#D4537E"}, {"modo": "saida", "t": "Variável", "c": "Nubank PJ", "d": "Cartao", "v": 2955.88, "p": false, "cor": "#639922"}, {"modo": "saida", "t": "Variável", "c": "Paula", "d": "Cartao Crédito Telefone 2/8", "v": 1271.0, "p": false, "cor": "#E24B4A"}, {"modo": "saida", "t": "Variável", "c": "Nubank", "d": "Cartao", "v": 1036.0, "p": false, "cor": "#0F6E56"}, {"modo": "saida", "t": "Fixo", "c": "Carro", "d": "Financiamento 16/48", "v": 1987.0, "p": true, "cor": "#993C1D"}, {"modo": "saida", "t": "Fixo", "c": "Ana", "d": "Pensao", "v": 400.0, "p": true, "cor": "#7F77DD"}, {"modo": "saida", "t": "Fixo", "c": "Claro", "d": "Telefone", "v": 341.43, "p": true, "cor": "#5DCAA5"}, {"modo": "saida", "t": "Variável", "c": "Carro", "d": "Transferencia 1/2", "v": 280.0, "p": false, "cor": "#EF9F27"}, {"modo": "saida", "t": "Variável", "c": "Carro", "d": "Ajuda motoca", "v": 300.0, "p": false, "cor": "#378ADD"}, {"modo": "saida", "t": "Variável", "c": "Carro", "d": "Abastecimento", "v": 200.0, "p": false, "cor": "#1D9E75"}, {"modo": "saida", "t": "Variável", "c": "Mei", "d": "Das (2024+2025)", "v": 1167.2, "p": false, "cor": "#D85A30"}, {"modo": "saida", "t": "Variável", "c": "Carro", "d": "Ipva 2026", "v": 2832.45, "p": false, "cor": "#534AB7"}, {"modo": "saida", "t": "Variável", "c": "Gloria", "d": "Emprestimo", "v": 700.0, "p": false, "cor": "#BA7517"}, {"modo": "saida", "t": "Fixo", "c": "Casa", "d": "Aluguel", "v": 729.0, "p": true, "cor": "#D4537E"}, {"modo": "saida", "t": "Fixo", "c": "Cris", "d": "Monj", "v": 830.0, "p": true, "cor": "#639922"}], "2026-06": [{"modo": "entrada", "t": "Entrada", "c": "Empresa", "d": "Pagamento", "v": 5000.0, "p": false, "cor": "#639922", "f": "pix"}, {"modo": "entrada", "t": "Entrada", "c": "Uber/99", "d": "Pagamento", "v": 1281.59, "p": false, "cor": "#639922", "f": "pix"}, {"modo": "saida", "t": "Fixo", "c": "Nubank", "d": "Seguro Vida", "v": 64.96, "p": true, "cor": "#E24B4A"}, {"modo": "saida", "t": "Variável", "c": "Nubank PJ", "d": "Cartao", "v": 759.7, "p": false, "cor": "#0F6E56"}, {"modo": "saida", "t": "Variável", "c": "Nubank", "d": "Cartao", "v": 948.82, "p": false, "cor": "#993C1D"}, {"modo": "saida", "t": "Variável", "c": "Paula", "d": "Cartao telefone 3/8", "v": 1526.0, "p": false, "cor": "#7F77DD"}, {"modo": "saida", "t": "Fixo", "c": "Carro", "d": "Financiamento 17/48", "v": 1987.0, "p": true, "cor": "#5DCAA5"}, {"modo": "saida", "t": "Variável", "c": "Carro", "d": "Conserto", "v": 750.0, "p": false, "cor": "#EF9F27"}, {"modo": "saida", "t": "Fixo", "c": "Ana", "d": "Pensao", "v": 400.0, "p": true, "cor": "#378ADD"}, {"modo": "saida", "t": "Fixo", "c": "Claro", "d": "Telefone", "v": 341.43, "p": true, "cor": "#1D9E75"}, {"modo": "saida", "t": "Fixo", "c": "Casa", "d": "Aluguel", "v": 798.1, "p": true, "cor": "#D85A30"}], "2026-07": [{"modo": "entrada", "t": "Entrada", "c": "Empresa", "d": "Pagamento", "v": 5000.0, "p": false, "cor": "#639922", "f": "pix"}, {"modo": "entrada", "t": "Entrada", "c": "Uber/99", "d": "Pagamento", "v": 1281.59, "p": false, "cor": "#639922", "f": "pix"}, {"modo": "saida", "t": "Fixo", "c": "Nubank", "d": "Seguro Vida", "v": 64.96, "p": true, "cor": "#534AB7"}, {"modo": "saida", "t": "Fixo", "c": "Carro", "d": "Financiamento 18/48", "v": 1987.0, "p": true, "cor": "#BA7517"}, {"modo": "saida", "t": "Fixo", "c": "Ana", "d": "Pensao", "v": 400.0, "p": true, "cor": "#D4537E"}, {"modo": "saida", "t": "Fixo", "c": "Claro", "d": "Telefone", "v": 341.43, "p": true, "cor": "#639922"}, {"modo": "saida", "t": "Fixo", "c": "Casa", "d": "Aluguel", "v": 798.1, "p": true, "cor": "#E24B4A"}], "2026-08": [{"modo": "entrada", "t": "Entrada", "c": "Empresa", "d": "Pagamento", "v": 5000.0, "p": false, "cor": "#639922", "f": "pix"}, {"modo": "entrada", "t": "Entrada", "c": "Uber/99", "d": "Pagamento", "v": 1281.59, "p": false, "cor": "#639922", "f": "pix"}, {"modo": "saida", "t": "Fixo", "c": "Nubank", "d": "Seguro Vida", "v": 64.96, "p": true, "cor": "#0F6E56"}, {"modo": "saida", "t": "Fixo", "c": "Carro", "d": "Financiamento 19/48", "v": 1987.0, "p": true, "cor": "#993C1D"}, {"modo": "saida", "t": "Fixo", "c": "Ana", "d": "Pensao", "v": 400.0, "p": true, "cor": "#7F77DD"}, {"modo": "saida", "t": "Fixo", "c": "Claro", "d": "Telefone", "v": 341.43, "p": true, "cor": "#5DCAA5"}, {"modo": "saida", "t": "Fixo", "c": "Casa", "d": "Aluguel", "v": 798.1, "p": true, "cor": "#EF9F27"}], "2026-09": [{"modo": "entrada", "t": "Entrada", "c": "Empresa", "d": "Pagamento", "v": 5000.0, "p": false, "cor": "#639922", "f": "pix"}, {"modo": "entrada", "t": "Entrada", "c": "Uber/99", "d": "Pagamento", "v": 1281.59, "p": false, "cor": "#639922", "f": "pix"}, {"modo": "saida", "t": "Fixo", "c": "Nubank", "d": "Seguro Vida", "v": 64.96, "p": true, "cor": "#378ADD"}, {"modo": "saida", "t": "Fixo", "c": "Carro", "d": "Financiamento 20/48", "v": 1987.0, "p": true, "cor": "#1D9E75"}, {"modo": "saida", "t": "Fixo", "c": "Ana", "d": "Pensao", "v": 400.0, "p": true, "cor": "#D85A30"}, {"modo": "saida", "t": "Fixo", "c": "Claro", "d": "Telefone", "v": 341.43, "p": true, "cor": "#534AB7"}, {"modo": "saida", "t": "Fixo", "c": "Casa", "d": "Aluguel", "v": 798.1, "p": true, "cor": "#BA7517"}], "2026-10": [{"modo": "entrada", "t": "Entrada", "c": "Empresa", "d": "Pagamento", "v": 5000.0, "p": false, "cor": "#639922", "f": "pix"}, {"modo": "entrada", "t": "Entrada", "c": "Uber/99", "d": "Pagamento", "v": 1281.59, "p": false, "cor": "#639922", "f": "pix"}, {"modo": "saida", "t": "Fixo", "c": "Nubank", "d": "Seguro Vida", "v": 64.96, "p": true, "cor": "#D4537E"}, {"modo": "saida", "t": "Fixo", "c": "Carro", "d": "Financiamento 21/48", "v": 1987.0, "p": true, "cor": "#639922"}, {"modo": "saida", "t": "Fixo", "c": "Ana", "d": "Pensao", "v": 400.0, "p": true, "cor": "#E24B4A"}, {"modo": "saida", "t": "Fixo", "c": "Claro", "d": "Telefone", "v": 341.43, "p": true, "cor": "#0F6E56"}, {"modo": "saida", "t": "Fixo", "c": "Casa", "d": "Aluguel", "v": 798.1, "p": true, "cor": "#993C1D"}], "2026-11": [{"modo": "entrada", "t": "Entrada", "c": "Empresa", "d": "Pagamento", "v": 5000.0, "p": false, "cor": "#639922", "f": "pix"}, {"modo": "entrada", "t": "Entrada", "c": "Uber/99", "d": "Pagamento", "v": 1281.59, "p": false, "cor": "#639922", "f": "pix"}, {"modo": "saida", "t": "Fixo", "c": "Nubank", "d": "Seguro Vida", "v": 64.96, "p": true, "cor": "#7F77DD"}, {"modo": "saida", "t": "Fixo", "c": "Carro", "d": "Financiamento 22/48", "v": 1987.0, "p": true, "cor": "#5DCAA5"}, {"modo": "saida", "t": "Fixo", "c": "Ana", "d": "Pensao", "v": 400.0, "p": true, "cor": "#EF9F27"}, {"modo": "saida", "t": "Fixo", "c": "Claro", "d": "Telefone", "v": 341.43, "p": true, "cor": "#378ADD"}, {"modo": "saida", "t": "Fixo", "c": "Casa", "d": "Aluguel", "v": 798.1, "p": true, "cor": "#1D9E75"}], "2026-12": [{"modo": "entrada", "t": "Entrada", "c": "Empresa", "d": "Pagamento", "v": 5000.0, "p": false, "cor": "#639922", "f": "pix"}, {"modo": "entrada", "t": "Entrada", "c": "Uber/99", "d": "Pagamento", "v": 1281.59, "p": false, "cor": "#639922", "f": "pix"}, {"modo": "saida", "t": "Fixo", "c": "Nubank", "d": "Seguro Vida", "v": 64.96, "p": true, "cor": "#D85A30"}, {"modo": "saida", "t": "Fixo", "c": "Carro", "d": "Financiamento 23/48", "v": 1987.0, "p": true, "cor": "#534AB7"}, {"modo": "saida", "t": "Fixo", "c": "Ana", "d": "Pensao", "v": 400.0, "p": true, "cor": "#BA7517"}, {"modo": "saida", "t": "Fixo", "c": "Claro", "d": "Telefone", "v": 341.43, "p": true, "cor": "#D4537E"}, {"modo": "saida", "t": "Fixo", "c": "Casa", "d": "Aluguel", "v": 798.1, "p": true, "cor": "#639922"}]};
+const fmt=v=>v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const fmtK=v=>{if(Math.abs(v)>=1000)return'R$'+(v/1000).toFixed(0)+'k';return'R$'+Math.round(v);};
+const m26=['Jan/26','Fev/26','Mar/26','Abr/26','Mai/26'];
+const e26=[6809.73, 12306.35, 5000.0, 7407.29, 19822.66];
+const s26=[9575.75, 12184.16, 10031.11, 9929.53, 15094.92];
+const anualE=[6809.73, 12306.35, 5000.0, 7407.29, 19822.66, 6281.59, 6281.59, 6281.59, 6281.59, 6281.59, 6281.59, 6281.59];
+const anualS=[9575.75, 12184.16, 10031.11, 9929.53, 15094.92, 7576.01, 3591.49, 3591.49, 3591.49, 3591.49, 3591.49, 3591.49];
+
+let bC=null,pC=null,modo='saida',editIdx=null;
+
+function gD(){return todosDados[mk(anoAtual,mesAtual)]||[];}
+function sD(a){todosDados[mk(anoAtual,mesAtual)]=a; fbSave();}
+
+function mudaMes(d){mesAtual+=d;if(mesAtual>11){mesAtual=0;anoAtual++;}if(mesAtual<0){mesAtual=11;anoAtual--;}rAll();}
+function voltaHoje(){mesAtual=4;anoAtual=2026;rAll();}
+function jumpMes(i){mesAtual=i;anoAtual=2026;rAll();}
+
+function rAnual(){
+  const maxAll=Math.max(...anualE,...anualS);
+  const tot=anualE.reduce((a,b)=>a+b,0)-anualS.reduce((a,b)=>a+b,0);
+  document.getElementById('anual-total').textContent='Saldo anual: '+fmt(tot);
+  document.getElementById('anual-months').innerHTML=NM.map((n,i)=>{
+    const hE=Math.max(2,Math.round((anualE[i]/maxAll)*36));
+    const hS=Math.max(2,Math.round((anualS[i]/maxAll)*36));
+    const sl=anualE[i]-anualS[i];
+    const cur=i===mesAtual&&anoAtual===2026;
+    return`<div class="am-col${cur?' atual':''}" onclick="jumpMes(${i})" title="${n}/26  E:${fmtK(anualE[i])}  S:${fmtK(anualS[i])}">
+      <div class="am-bar-wrap">
+        <div class="am-bar" style="height:${hE}px;background:rgba(99,153,34,.75)"></div>
+        <div class="am-bar" style="height:${hS}px;background:rgba(226,75,74,.75)"></div>
+      </div>
+      <div class="am-lbl">${n}</div>
+      <div class="am-saldo" style="color:${sl>=0?'#639922':'#E24B4A'}">${sl>=0?'+':''}${fmtK(sl)}</div>
+    </div>`;
+  }).join('');
+}
+
+function rBalao(){
+  const te=e26.reduce((a,b)=>a+b,0),ts=s26.reduce((a,b)=>a+b,0),sa=te-ts;
+  document.getElementById('te').textContent=fmt(te);
+  document.getElementById('ts').textContent=fmt(ts);
+  const el=document.getElementById('tsa');el.textContent=fmt(sa);el.className='val '+(sa>=0?'vg':'vr');
+  if(bC)bC.destroy();
+  bC=new Chart(document.getElementById('barC'),{type:'bar',
+    data:{labels:m26,datasets:[
+      {label:'Entradas',data:e26,backgroundColor:'rgba(99,153,34,.75)',borderWidth:0,borderRadius:4},
+      {label:'Saídas',data:s26,backgroundColor:'rgba(226,75,74,.75)',borderWidth:0,borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${fmt(c.raw)}`}}},
+      scales:{x:{ticks:{color:'#8a9ab5',font:{size:11}},grid:{display:false},border:{color:'rgba(255,255,255,.05)'}},
+              y:{ticks:{color:'#8a9ab5',font:{size:10},callback:fmtK},grid:{color:'rgba(255,255,255,.05)'},border:{display:false}}}}});
+}
+
+function calc(){
+  let fx=0,vr=0,px=0,em=0,pago=0,pend=0;
+  gD().forEach(d=>{
+    if(d.modo==='entrada'){em+=d.v;}
+    else{
+      if(d.t==='Fixo')fx+=d.v;else vr+=d.v;
+      if(d.p)px+=d.v;
+      if(d.pago)pago+=d.v;else pend+=d.v;
+    }
+  });
+  return{fx,vr,tot:fx+vr,px,em,sl:em-(fx+vr),pago,pend};
+}
+
+function rCards(){
+  const t=calc(), mn=NM[mesAtual]+'/'+String(anoAtual).slice(2);
+  document.getElementById('hsub').textContent=gD().length+' lançamentos — '+mn;
+  document.getElementById('mes-label').textContent=NM[mesAtual]+' '+anoAtual;
+  document.getElementById('mes-tab').textContent=mn;
+  document.getElementById('mes-dist').textContent=mn;
+  document.getElementById('cards').innerHTML=`
+    <div class="metric-card"><div class="lbl"><span class="dot" style="background:#639922"></span>Entradas do mês</div><div class="val vg">${fmt(t.em)}</div></div>
+    <div class="metric-card"><div class="lbl"><span class="dot" style="background:#E24B4A"></span>Despesa total</div><div class="val vr">${fmt(t.tot)}</div></div>
+    <div class="metric-card"><div class="lbl"><span class="dot" style="background:#3B6D11"></span>✅ Pago</div><div class="val vg">${fmt(t.pago)}</div></div>
+    <div class="metric-card"><div class="lbl"><span class="dot" style="background:#E24B4A"></span>⏳ Pendente</div><div class="val vr">${fmt(t.pend)}</div></div>
+    <div class="metric-card"><div class="lbl"><span class="dot" style="background:#378ADD"></span>Saldo do mês</div><div class="val ${t.sl>=0?'vb':'vr'}">${fmt(t.sl)}</div></div>
+    <div class="metric-card"><div class="lbl"><span class="dot" style="background:#5DCAA5"></span>Soma próx. mês</div><div class="val vg">${fmt(t.px)}</div></div>`;
+  const pct=t.tot>0?Math.round((t.pago/t.tot)*100):0;
+  const pFill=document.getElementById('prog-fill');
+  if(pFill){pFill.style.width=pct+'%';document.getElementById('prog-pct').textContent=pct+'%';document.getElementById('prog-label').textContent=pct+'% das despesas pagas';document.getElementById('prog-pago').textContent='✅ Pago: '+fmt(t.pago);document.getElementById('prog-pend').textContent='⏳ Pendente: '+fmt(t.pend);}
+}
+
+function rPie(){
+  const raw=gD().filter(d=>d.modo==='saida'&&d.v>0);
+  if(!raw.length){
+    document.getElementById('clist').innerHTML='<div style="font-size:12px;color:#5a6a80;padding:8px">Nenhuma despesa</div>';
+    if(pC)pC.destroy();return;
+  }
+  // Agrupar por credor
+  const map={};
+  raw.forEach(d=>{
+    if(!map[d.c]){map[d.c]={c:d.c,v:0,cor:d.cor};}
+    map[d.c].v+=d.v;
+  });
+  const its=Object.values(map);
+  const tot=its.reduce((s,d)=>s+d.v,0);
+  const sorted=[...its].sort((a,b)=>a.v-b.v);
+  document.getElementById('clist').innerHTML=sorted.map(d=>`
+    <div class="citem"><span class="cdot" style="background:${d.cor}"></span>
+    <span class="cname">${d.c}</span>
+    <span class="cpct">${((d.v/tot)*100).toFixed(1)}%</span></div>`).join('');
+  if(pC)pC.destroy();
+  pC=new Chart(document.getElementById('pieC'),{type:'doughnut',
+    data:{labels:its.map(d=>d.c),datasets:[{data:its.map(d=>d.v),backgroundColor:its.map(d=>d.cor),borderWidth:0,hoverOffset:8}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'60%',
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.label}: ${fmt(c.raw)} (${((c.raw/tot)*100).toFixed(1)}%)`}}}}});
+}
+
+function fL(id){const f=FORMAS.find(x=>x.id===id);return f?f.l:'—';}
+
+function rTable(){
+  const dados=gD();
+  document.getElementById('tbody').innerHTML=!dados.length
+    ?'<div style="padding:24px;text-align:center;font-size:13px;color:#5a6a80">Nenhum lançamento neste mês</div>'
+    :dados.map((d,i)=>{
+      const e=d.modo==='entrada';
+      const b=e?`<span class="bdg ben">Entrada</span>`:`<span class="bdg ${d.t==='Fixo'?'bfx':'bvr'}">${d.t}</span>`;
+      const vs=e?'color:#5DCAA5;font-weight:600':((!e&&d.pago)?'color:#5a6a80;text-decoration:line-through':'');
+      const via=e
+        ?`<span class="ftag"><i class="ti ti-cash" style="font-size:11px"></i> ${fL(d.f)}</span>`
+        :d.pago
+          ?`<button class="spago" onclick="togglePago(${i})">✅ Pago</button>`
+          :`<button class="spend" onclick="togglePago(${i})">⏳ Pagar</button>`;
+      return`<div class="trow${(!e&&d.pago)?' pago':''}"><span>${b}</span><span style="font-weight:500">${d.c}</span>
+        <span class="dcol" style="color:#8a9ab5">${d.d}</span>
+        <span style="font-variant-numeric:tabular-nums;${vs}">${e?'+ ':''}${fmt(d.v)}</span>
+        <span>${via}</span>
+        <span class="act-btns">
+          <button class="ibtn edit" onclick="openEdit(${i})" title="Editar"><i class="ti ti-pencil" style="font-size:14px"></i></button>
+          <button class="ibtn del" onclick="rm(${i})" title="Excluir"><i class="ti ti-trash" style="font-size:14px"></i></button>
+        </span></div>`;
+    }).join('');
+}
+
+function togglePago(i){
+  const d=gD();
+  if(!d[i]||d[i].modo==='entrada') return;
+  d[i].pago=!d[i].pago;
+  sD(d);rAll();
+  showT(d[i].pago?'✅ Marcado como pago!':'⏳ Marcado como pendente');
+}
+function rAll(){rCards();rPie();rTable();rAnual();}
+function rm(i){const d=gD();d.splice(i,1);sD(d);rAll();showT('Lançamento removido.');}
+
+function openEdit(i){
+  editIdx=i; const d=gD()[i]; const e=d.modo==='entrada';
+  document.getElementById('m-c').value=d.c;
+  document.getElementById('m-d').value=d.d;
+  document.getElementById('m-v').value=d.v;
+  document.getElementById('m-trow').style.display=e?'none':'flex';
+  document.getElementById('m-crow').style.display=e?'none':'flex';
+  if(!e){document.querySelectorAll('input[name="mtipo"]').forEach(r=>r.checked=r.value===d.t);document.getElementById('m-p').checked=!!d.p;}
+  document.getElementById('modal').style.display='flex';
+}
+function saveEdit(){
+  const d=gD(); const item=d[editIdx];
+  const nc=document.getElementById('m-c').value.trim();
+  const nd=document.getElementById('m-d').value.trim();
+  const nv=parseFloat(document.getElementById('m-v').value);
+  if(!nc||!nd||isNaN(nv)||nv<=0){showT('Preencha todos os campos.',true);return;}
+  item.c=nc;item.d=nd;item.v=nv;
+  if(item.m==='saida'){item.t=document.querySelector('input[name="mtipo"]:checked').value;item.p=item.t==='Fixo'?true:document.getElementById('m-p').checked;}
+  sD(d);closeModal();rAll();showT('✓ Atualizado com sucesso!');
+}
+function closeModal(){document.getElementById('modal').style.display='none';editIdx=null;}
+
+function setM(m){
+  modo=m;const e=m==='entrada';
+  document.getElementById('bte').className='tbtn'+(e?' ae':'');
+  document.getElementById('bts').className='tbtn'+(!e?' as':'');
+  document.getElementById('fsec').style.display=e?'block':'none';
+  document.getElementById('trow').style.display=e?'none':'flex';
+  document.getElementById('cbrow').style.display=e?'none':'flex';
+  document.getElementById('lorig').textContent=e?'Origem / Fonte':'Credor / Empresa';
+  document.getElementById('badd').className='badd '+(e?'be':'bs');
+  document.getElementById('blbl').textContent=e?'Adicionar entrada':'Adicionar saída';
+}
+document.querySelectorAll('input[name="tipo"]').forEach(r=>r.addEventListener('change',()=>{if(modo==='saida')document.getElementById('cbrow').style.display=r.value==='Fixo'?'none':'flex';}));
+
+function addL(){
+  const c=document.getElementById('ic').value.trim();
+  const d=document.getElementById('idd').value.trim();
+  const v=parseFloat(document.getElementById('iv').value);
+  if(!c||!d||isNaN(v)||v<=0){showT('Preencha todos os campos.',true);return;}
+  const dados=gD();
+  if(modo==='entrada'){dados.unshift({modo:'entrada',t:'Entrada',c,d,v,p:false,cor:'#639922',f:fs});showT('✓ Entrada adicionada!');}
+  else{const t=document.querySelector('input[name="tipo"]:checked').value;const p=t==='Fixo'?true:document.getElementById('chk').checked;dados.push({modo:'saida',t,c,d,v,p,cor:nC(),pago:false});showT('✓ Saída adicionada!');}
+  sD(dados);
+  document.getElementById('ic').value='';document.getElementById('acxb').className='acx';
+  document.getElementById('idd').value='';document.getElementById('iv').value='';
+  document.getElementById('chk').checked=false;rAll();
+}
+
+let ahi=-1;
+function acF(){const v=document.getElementById('ic').value.trim();const dd=document.getElementById('acdd');document.getElementById('acxb').className='acx'+(v?' on':'');const fl=v?CREDS.filter(c=>c.toLowerCase().includes(v.toLowerCase())):CREDS;ahi=-1;dd.innerHTML=fl.length?fl.map(c=>{const h=v?c.replace(new RegExp(`(${v.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi'),'<mark>$1</mark>'):c;return`<div class="acit" data-v="${c}" onmousedown="acS('${c}')"><i class="ti ti-user" style="font-size:12px;color:#5a6a80"></i>${h}</div>`;}).join(''):'<div class="acempty">Nenhum resultado</div>';dd.classList.add('open');}
+function acS(v){document.getElementById('ic').value=v;document.getElementById('acxb').className='acx on';document.getElementById('acdd').classList.remove('open');ahi=-1;}
+function acCl(){document.getElementById('ic').value='';document.getElementById('acxb').className='acx';document.getElementById('acdd').classList.remove('open');document.getElementById('ic').focus();}
+function acK(e){const dd=document.getElementById('acdd');const its=dd.querySelectorAll('.acit');if(!its.length)return;if(e.key==='ArrowDown'){e.preventDefault();ahi=Math.min(ahi+1,its.length-1);}else if(e.key==='ArrowUp'){e.preventDefault();ahi=Math.max(ahi-1,0);}else if(e.key==='Enter'&&ahi>=0){e.preventDefault();acS(its[ahi].dataset.v);return;}else if(e.key==='Escape'){dd.classList.remove('open');return;}its.forEach((it,i)=>it.classList.toggle('hi',i===ahi));if(ahi>=0)its[ahi].scrollIntoView({block:'nearest'});}
+document.addEventListener('click',e=>{if(!e.target.closest('#acwrap'))document.getElementById('acdd').classList.remove('open');});
+
+function showT(msg,err=false){const t=document.getElementById('toast');t.textContent=msg;t.style.background=err?'#7a1f1f':(modo==='entrada'?'#27500A':'#0C447C');t.style.color='#fff';t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
+
+bFC();rBalao();
+fbLoad(function(data) {
+  if (data && data.todosDados) {
+    todosDados = data.todosDados;
+    setSyncStatus('ok');
+  } else {
+    setSyncStatus(fbRef ? 'ok' : 'err');
+    if (fbRef) fbSave(); // sobe dados iniciais para nuvem
+  }
+  rAll();
+});
+</script>
+</body>
+</html>
