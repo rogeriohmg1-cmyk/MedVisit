@@ -159,7 +159,9 @@ html,body{height:100%;background:#F0F4F8;font-family:-apple-system,BlinkMacSyste
 /* RADAR */
 .radar-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
 @media(max-width:480px){.radar-summary{grid-template-columns:repeat(3,1fr)}}
-.rs-card{border-radius:12px;padding:10px 12px;text-align:center;border:1px solid transparent}
+.rs-card{border-radius:12px;padding:10px 12px;text-align:center;border:1px solid transparent;transition:transform .1s}
+.rs-card:active{transform:scale(.96)}
+.rs-card.sel{border-width:2px;box-shadow:0 0 0 2px rgba(10,31,60,.15) inset}
 .rs-card.frozen{background:#FEE2E2;border-color:#FECACA}
 .rs-card.cold{background:#FEF3C7;border-color:#FDE68A}
 .rs-card.warm{background:#DCFCE7;border-color:#BBF7D0}
@@ -354,9 +356,9 @@ html,body{height:100%;background:#F0F4F8;font-family:-apple-system,BlinkMacSyste
     <!-- RADAR -->
     <div id="sec-r" class="sec">
       <div class="radar-summary">
-        <div class="rs-card frozen"><div class="rs-n" id="r-frozen">0</div><div class="rs-l">🥶 +90 dias</div></div>
-        <div class="rs-card cold"><div class="rs-n" id="r-cold">0</div><div class="rs-l">🌡️ 30–90 dias</div></div>
-        <div class="rs-card warm"><div class="rs-n" id="r-warm">0</div><div class="rs-l">✅ Recentes</div></div>
+        <div class="rs-card frozen" id="rs-card-frozen" style="cursor:pointer" onclick="setRTemp('frozen')" title="Ver médicos +90 dias ou nunca visitados"><div class="rs-n" id="r-frozen">0</div><div class="rs-l">🥶 +90 dias</div></div>
+        <div class="rs-card cold" id="rs-card-cold" style="cursor:pointer" onclick="setRTemp('cold')" title="Ver médicos entre 30 e 90 dias"><div class="rs-n" id="r-cold">0</div><div class="rs-l">🌡️ 30–90 dias</div></div>
+        <div class="rs-card warm" id="rs-card-warm" style="cursor:pointer" onclick="setRTemp('warm')" title="Ver médicos visitados recentemente"><div class="rs-n" id="r-warm">0</div><div class="rs-l">✅ Recentes</div></div>
       </div>
       <!-- Barra de busca rápida -->
       <div style="display:flex;gap:7px;margin-bottom:10px">
@@ -387,6 +389,7 @@ html,body{height:100%;background:#F0F4F8;font-family:-apple-system,BlinkMacSyste
       </div>
       <input type="hidden" id="r-prio" value="">
       <input type="hidden" id="r-range" value="0">
+      <input type="hidden" id="r-temp" value="">
       <div id="lr"></div>
     </div>
 
@@ -458,7 +461,10 @@ html,body{height:100%;background:#F0F4F8;font-family:-apple-system,BlinkMacSyste
       <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
         <button class="bxs pr" onclick="openOrcSheet()"><i class="ti ti-plus"></i> Novo orçamento</button>
       </div>
-      <div style="overflow-x:auto">
+      <div id="orc-scroll-top" style="overflow-x:auto;overflow-y:hidden;height:14px;margin-bottom:2px" onscroll="syncOrcScroll('top')">
+        <div id="orc-scroll-top-spacer" style="height:1px"></div>
+      </div>
+      <div style="overflow-x:auto" id="orc-scroll-main" onscroll="syncOrcScroll('main')">
         <table class="orc-table">
           <thead><tr>
             <th>Data</th><th>Nº</th><th>Cliente (Hospital)</th><th>Médico</th><th>Paciente</th><th>Convênio</th><th>Material</th><th>Valor</th><th></th>
@@ -747,7 +753,7 @@ html,body{height:100%;background:#F0F4F8;font-family:-apple-system,BlinkMacSyste
       <div class="frow"><label>Data *</label><input type="date" id="o-data"></div>
       <div class="frow"><label>Nº Orçamento *</label><input type="text" id="o-num" placeholder="Ex: 124491"></div>
     </div>
-    <div class="frow"><label>Cliente / Hospital *</label><input type="text" id="o-cliente" placeholder="Ex: Santa Casa Diamantina"></div>
+    <div class="frow"><label>Cliente / Hospital *</label><input type="text" id="o-cliente" list="o-cliente-list" placeholder="Ex: Santa Casa Diamantina" autocomplete="off" style="text-transform:uppercase"><datalist id="o-cliente-list"></datalist></div>
     <div class="frow"><label>Médico</label>
       <select id="o-medico" style="height:38px"><option value="">— selecionar —</option></select>
     </div>
@@ -771,7 +777,7 @@ html,body{height:100%;background:#F0F4F8;font-family:-apple-system,BlinkMacSyste
       </div>
       <div class="frow"><label>Status</label>
         <select id="o-status" style="height:38px">
-          <option>Em aberto</option><option>Aprovado</option><option>Negado</option><option>Aguardando</option><option>Faturado</option>
+          <option>Aberto</option><option>Em cirurgia</option><option>Aguardando faturamento</option><option>Faturado</option><option>Finalizado</option><option>Perdido</option>
         </select>
       </div>
     </div>
@@ -1603,6 +1609,16 @@ function setRRange(range){
   });
   rRadar();
 }
+function setRTemp(temp){
+  const cur=ge('r-temp').value;
+  const next = cur===temp ? '' : temp; // clica de novo no mesmo card para limpar
+  ge('r-temp').value=next;
+  ['frozen','cold','warm'].forEach(t=>{
+    const el=ge('rs-card-'+t);
+    if(el) el.classList.toggle('sel', next===t);
+  });
+  rRadar();
+}
 
 // ── RADAR DE INTERAÇÃO ──
 function getLastVisit(docNome){
@@ -1632,6 +1648,7 @@ function tempClass(days){
 function rRadar(){
   const prioF=ge('r-prio').value||'';
   const rangeF=parseInt(ge('r-range').value||'0');
+  const tempF=ge('r-temp')?ge('r-temp').value:'';
   const cityF=ge('r-city')?ge('r-city').value:'';
   const searchF=(ge('r-search')?ge('r-search').value:'').toLowerCase();
 
@@ -1659,6 +1676,7 @@ function rRadar(){
   let filt=docData.filter(d=>{
     if(prioF && d.prio!==prioF) return false;
     if(rangeF>0 && d.days<rangeF) return false;
+    if(tempF && d.temp!==tempF) return false;
     if(cityF && d.cidade!==cityF) return false;
     if(searchF && !d.nome.toLowerCase().includes(searchF)) return false;
     return true;
@@ -1875,10 +1893,10 @@ function rOrcStats(){
 
   // ── FUNIL GERAL ──
   const total    = orcs.length;
-  const aprovado = orcs.filter(o=>o.status==='Aprovado'||o.status==='Faturado').length;
+  const aprovado = orcs.filter(o=>o.status==='Aprovado'||o.status==='Faturado'||o.status==='Finalizado').length;
   const faturado = orcs.filter(o=>o.status==='Faturado').length;
-  const negado   = orcs.filter(o=>o.status==='Negado').length;
-  const aberto   = orcs.filter(o=>o.status==='Em aberto'||o.status==='Aguardando').length;
+  const negado   = orcs.filter(o=>o.status==='Negado'||o.status==='Perdido').length;
+  const aberto   = orcs.filter(o=>o.status==='Em aberto'||o.status==='Aberto'||o.status==='Aguardando'||o.status==='Em cirurgia'||o.status==='Aguardando faturamento').length;
 
   const pctAprov = total ? Math.round(aprovado/total*100) : 0;
   const pctFat   = total ? Math.round(faturado/total*100) : 0;
@@ -1900,7 +1918,7 @@ function rOrcStats(){
 
   // ── KPIs VALOR ──
   const valorTotal  = orcs.reduce((s,o)=>s+(o.valor||0),0);
-  const valorAprov  = orcs.filter(o=>o.status==='Aprovado'||o.status==='Faturado').reduce((s,o)=>s+(o.valor||0),0);
+  const valorAprov  = orcs.filter(o=>o.status==='Aprovado'||o.status==='Faturado'||o.status==='Finalizado').reduce((s,o)=>s+(o.valor||0),0);
   const valorFat    = orcs.filter(o=>o.status==='Faturado').reduce((s,o)=>s+(o.valor||0),0);
   const fmtK = v => v>=1000000 ? 'R$'+(v/1000000).toFixed(1)+'M' : v>=1000 ? 'R$'+(v/1000).toFixed(0)+'k' : 'R$'+v.toFixed(0);
 
@@ -1918,7 +1936,7 @@ function rOrcStats(){
     if(!medMap[m]) medMap[m] = {orcs:0,aprov:0,valorOrc:0,valorAprov:0};
     medMap[m].orcs++;
     medMap[m].valorOrc += (o.valor||0);
-    if(o.status==='Aprovado'||o.status==='Faturado'){
+    if(o.status==='Aprovado'||o.status==='Faturado'||o.status==='Finalizado'){
       medMap[m].aprov++;
       medMap[m].valorAprov += (o.valor||0);
     }
@@ -1961,11 +1979,11 @@ function rOrcStats(){
   // ── POR CONVÊNIO ──
   const convMap = {};
   orcs.forEach(o=>{
-    const c = o.conv||'Não informado';
+    const c = (o.conv||'').trim() ? o.conv.trim().toUpperCase() : 'NÃO INFORMADO';
     if(!convMap[c]) convMap[c]={total:0,aprov:0,valor:0};
     convMap[c].total++;
     convMap[c].valor += (o.valor||0);
-    if(o.status==='Aprovado'||o.status==='Faturado') convMap[c].aprov++;
+    if(o.status==='Aprovado'||o.status==='Faturado'||o.status==='Finalizado') convMap[c].aprov++;
   });
   const convColors = {SUS:'#166534',UNIMED:'#185FA5',BRADESCO:'#991B1B',VALE:'#92400E',IPSEMG:'#6B21A8',PARTICULAR:'#0F6E56',FUSEX:'#1E40AF'};
   ge('stats-conv-wrap').innerHTML = Object.entries(convMap)
@@ -1986,11 +2004,11 @@ function rOrcStats(){
   // ── POR HOSPITAL ──
   const hospMap = {};
   orcs.forEach(o=>{
-    const h = (o.cliente||'Não informado').trim();
+    const h = (o.cliente||'').trim() ? o.cliente.trim().toUpperCase() : 'NÃO INFORMADO';
     if(!hospMap[h]) hospMap[h]={total:0,aprov:0,valor:0};
     hospMap[h].total++;
     hospMap[h].valor += (o.valor||0);
-    if(o.status==='Aprovado'||o.status==='Faturado') hospMap[h].aprov++;
+    if(o.status==='Aprovado'||o.status==='Faturado'||o.status==='Finalizado') hospMap[h].aprov++;
   });
   ge('stats-hosp-body').innerHTML = Object.entries(hospMap)
     .sort((a,b)=>b[1].valor-a[1].valor)
@@ -2016,6 +2034,15 @@ function openOrcSheet(id){
   sel.innerHTML='<option value="">— selecionar —</option>'+
     docs.slice().sort((a,b)=>a.nome.localeCompare(b.nome))
       .map(d=>`<option value="${d.nome}">${d.nome}${d.cidade?' ('+d.cidade+')':''}</option>`).join('');
+  // Popula lista de clientes/hospitais já cadastrados (histórico de orçamentos + cadastro de hospitais)
+  const clienteList=ge('o-cliente-list');
+  if(clienteList){
+    const clientes=[...new Set([
+      ...orcs.map(o=>(o.cliente||'').trim().toUpperCase()),
+      ...hosps.map(h=>(h.nome||'').trim().toUpperCase())
+    ].filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+    clienteList.innerHTML=clientes.map(c=>`<option value="${c.replace(/"/g,'&quot;')}">`).join('');
+  }
 
   if(id){
     const o=orcs.find(x=>x.id===id);if(!o)return;
@@ -2042,7 +2069,7 @@ function openOrcSheet(id){
 
 function saveOrc(){
   const num=ge('o-num').value.trim();
-  const cliente=ge('o-cliente').value.trim();
+  const cliente=ge('o-cliente').value.trim().toUpperCase();
   const material=ge('o-material').value.trim();
   if(!num||!cliente||!material){toast('Preencha Nº, Cliente e Material');return;}
   const o={
@@ -2161,11 +2188,16 @@ function rOrc(){
   if(empty)empty.style.display='none';
 
   const stColor={
-    'Aprovado':'background:#DCFCE7;color:#166534',
-    'Negado':'background:#FEE2E2;color:#991B1B',
-    'Faturado':'background:#DBEAFE;color:#1E40AF',
+    'Aberto':'background:#F1F5F9;color:#475569',
+    'Em aberto':'background:#F1F5F9;color:#475569',
+    'Em cirurgia':'background:#EDE9FE;color:#5B21B6',
+    'Aguardando faturamento':'background:#FEF3C7;color:#92400E',
     'Aguardando':'background:#FEF3C7;color:#92400E',
-    'Em aberto':'background:#F1F5F9;color:#475569'
+    'Faturado':'background:#DBEAFE;color:#1E40AF',
+    'Finalizado':'background:#DCFCE7;color:#166534',
+    'Aprovado':'background:#DCFCE7;color:#166534',
+    'Perdido':'background:#FEE2E2;color:#991B1B',
+    'Negado':'background:#FEE2E2;color:#991B1B'
   };
 
   try {
@@ -2200,6 +2232,27 @@ function rOrc(){
       return row;
     }).join('');
   } catch(e) { console.error('rOrc render error:', e); tbody.innerHTML='<tr><td colspan=9 style="color:red;padding:8px">Erro ao renderizar: '+e.message+'</td></tr>'; }
+
+  // Ajusta a largura do espaçador da barra de rolagem espelhada (topo)
+  setTimeout(()=>{
+    const mainEl=ge('orc-scroll-main'), spacer=ge('orc-scroll-top-spacer');
+    if(mainEl && spacer){
+      const table=mainEl.querySelector('table');
+      if(table) spacer.style.width=table.scrollWidth+'px';
+    }
+  },0);
+}
+
+let orcScrollSyncing=false;
+function syncOrcScroll(source){
+  if(orcScrollSyncing) return;
+  orcScrollSyncing=true;
+  const top=ge('orc-scroll-top'), main=ge('orc-scroll-main');
+  if(top && main){
+    if(source==='top') main.scrollLeft=top.scrollLeft;
+    else top.scrollLeft=main.scrollLeft;
+  }
+  orcScrollSyncing=false;
 }
 
 // ═══════════════════════════════════════
