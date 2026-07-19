@@ -786,18 +786,7 @@ html,body{height:100%;background:#F0F4F8;font-family:-apple-system,BlinkMacSyste
     <div class="fg2">
       <div class="frow"><label>Convênio</label>
         <input type="text" id="o-conv" placeholder="Ex: SUS, UNIMED, IPSEMG..." style="text-transform:uppercase;margin-bottom:6px">
-        <div style="display:flex;flex-wrap:wrap;gap:5px">
-          <button type="button" onclick="setConvValue('SUS')"       class="conv-chip">SUS</button>
-          <button type="button" onclick="setConvValue('UNIMED')"    class="conv-chip">UNIMED</button>
-          <button type="button" onclick="setConvValue('BRADESCO')"  class="conv-chip">BRADESCO</button>
-          <button type="button" onclick="setConvValue('IPSEMG')"    class="conv-chip">IPSEMG</button>
-          <button type="button" onclick="setConvValue('VALE')"      class="conv-chip">VALE</button>
-          <button type="button" onclick="setConvValue('FUSEX')"     class="conv-chip">FUSEX</button>
-          <button type="button" onclick="setConvValue('AMIL')"      class="conv-chip">AMIL</button>
-          <button type="button" onclick="setConvValue('HAPVIDA')"   class="conv-chip">HAPVIDA</button>
-          <button type="button" onclick="setConvValue('CASSI')"     class="conv-chip">CASSI</button>
-          <button type="button" onclick="setConvValue('PARTICULAR')" class="conv-chip">PARTICULAR</button>
-        </div>
+        <div id="o-conv-chips" style="display:flex;flex-wrap:wrap;gap:5px"></div>
       </div>
       <div class="frow"><label>Status</label>
         <select id="o-status" style="height:38px">
@@ -1978,8 +1967,16 @@ function setConvValue(val){
 }
 function rebuildConvSelect(){
   const dl = ge('conv-list');
-  if(!dl) return;
-  dl.innerHTML = allConvenios().map(c=>`<option value="${c}">`).join('');
+  if(dl) dl.innerHTML = allConvenios().map(c=>`<option value="${c}">`).join('');
+  const chipsWrap = ge('o-conv-chips');
+  if(chipsWrap){
+    const atual = getConvValue();
+    chipsWrap.innerHTML = allConvenios().map(c=>{
+      const esc=c.replace(/'/g,"\\'");
+      const on = c===atual;
+      return `<button type="button" onclick="setConvValue('${esc}')" class="conv-chip" style="${on?'background:#0A1F3C;color:#fff':''}">${c}</button>`;
+    }).join('');
+  }
 }
 function rebuildConvFilter(){
   const dl = ge('conv-filter-list');
