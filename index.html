@@ -2071,9 +2071,11 @@ function updateItensTotalTxt(){
     total+=toNum(tr.querySelector('.it-vtotal').value);
   });
   if(ge('itens-total-txt')) ge('itens-total-txt').textContent='R$ '+total.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
-  // Preenche o campo Valor de cima automaticamente, a menos que o usuário já tenha digitado algo nele
-  if(!valorEditadoManual && ge('o-valor')){
-    ge('o-valor').value = total>0 ? total.toFixed(2).replace('.',',') : '';
+  // Preenche/atualiza o campo Valor de cima automaticamente com a soma dos itens,
+  // a menos que o usuário já tenha digitado algo manualmente nele. Nunca apaga
+  // um valor existente só porque ainda não há itens somando.
+  if(!valorEditadoManual && ge('o-valor') && total>0){
+    ge('o-valor').value = total.toFixed(2).replace('.',',');
   }
 }
 function renderItensRows(items){
@@ -2320,7 +2322,6 @@ function openOrcSheet(id){
     ge('o-procedimento').value=o.procedimento||'';
     ge('o-material').value=o.material||'';
     ge('o-valor').value=o.valor?String(o.valor).replace('.',','):'';
-    if(o.valor) valorEditadoManual=true; // preserva valor já gravado, não deixa os itens sobrescreverem
     ge('o-obs').value=o.obs||'';
     renderItensRows(o.itens||[]);
   } else {
