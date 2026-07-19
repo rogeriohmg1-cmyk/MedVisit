@@ -314,8 +314,8 @@ html,body{height:100%;background:#F0F4F8;font-family:-apple-system,BlinkMacSyste
     </div>
     <div class="hdr-r">
       <div class="sy sy-ok" id="sync"><i class="ti ti-device-floppy"></i><span id="stxt">Salvo</span></div>
-      <button class="sync-btn" id="sync-btn" onclick="syncManual()" title="Forçar sincronização com Firebase">
-        <i class="ti ti-cloud-upload"></i><span id="sync-btn-txt">Sincronizar</span>
+      <button class="sync-btn" id="sync-btn" onclick="syncManual()" title="A sincronização agora é automática. Toque para checar a conexão.">
+        <i class="ti ti-cloud-upload"></i><span id="sync-btn-txt">Conexão</span>
       </button>
       <button class="add-btn" onclick="openVisitSheet()"><i class="ti ti-plus"></i>Visita</button>
     </div>
@@ -503,8 +503,21 @@ html,body{height:100%;background:#F0F4F8;font-family:-apple-system,BlinkMacSyste
         </div>
 
         <!-- Por convênio -->
-        <div class="stat-section-title">💳 Por convênio</div>
+        <div class="stat-section-title">💳 Por convênio <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#94A3B8">(toque para ver os orçamentos)</span></div>
         <div id="stats-conv-wrap" style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px"></div>
+
+        <!-- Banco de itens por convênio -->
+        <div class="stat-section-title">🔍 Itens por convênio (banco de dados)</div>
+        <div class="fbar" style="margin-bottom:8px">
+          <input class="fi-c" type="text" id="itens-query-conv" list="conv-filter-list" placeholder="Digite ou toque num convênio acima..." oninput="renderItensQuery()" autocomplete="off" style="text-transform:uppercase;width:100%">
+        </div>
+        <div style="overflow-x:auto">
+          <table class="orc-table">
+            <thead><tr><th>Data</th><th>Cliente</th><th>Paciente</th><th>Médico</th><th style="text-align:center">Qtd</th><th>Material</th><th style="text-align:right">V.Uni</th><th style="text-align:right">V.Total</th></tr></thead>
+            <tbody id="itens-query-body"></tbody>
+          </table>
+        </div>
+        <div id="itens-query-empty" style="font-size:11px;color:#94A3B8;padding:8px;display:none">Nenhum item lançado para este convênio ainda.</div>
 
         <!-- Por hospital -->
         <div class="stat-section-title">🏥 Por hospital/cliente</div>
@@ -520,14 +533,28 @@ html,body{height:100%;background:#F0F4F8;font-family:-apple-system,BlinkMacSyste
 
     <!-- HOSPITAIS -->
     <div id="sec-h" class="sec">
-      <div class="fbar" style="margin-bottom:10px">
-        <input class="fi-s" type="text" placeholder="Nome, cidade, contato..." id="sh" oninput="rHosp()">
-        <select class="fi-c" id="sh-city" onchange="rHosp()"><option value="">Todas cidades</option></select>
+      <div style="font-size:11px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">🏥 Hospitais/Convênio</div>
+      <div class="orc-tabs">
+        <div class="orc-tab on" onclick="goHConvTab('hosp')" id="hctab-hosp">🏥 Hospitais</div>
+        <div class="orc-tab" onclick="goHConvTab('conv')" id="hctab-conv">💳 Convênios</div>
       </div>
-      <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
-        <button class="bxs pr" onclick="openHospSheet()"><i class="ti ti-plus"></i> Novo hospital</button>
+      <div id="hconv-sec-hosp">
+        <div class="fbar" style="margin-bottom:10px">
+          <input class="fi-s" type="text" placeholder="Nome, cidade, contato..." id="sh" oninput="rHosp()">
+          <select class="fi-c" id="sh-city" onchange="rHosp()"><option value="">Todas cidades</option></select>
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+          <button class="bxs pr" onclick="openHospSheet()"><i class="ti ti-plus"></i> Novo hospital</button>
+        </div>
+        <div id="lh" class="hsp-grid"></div>
       </div>
-      <div id="lh" class="hsp-grid"></div>
+      <div id="hconv-sec-conv" style="display:none">
+        <div class="fbar" style="margin-bottom:10px">
+          <input class="fi-s" type="text" id="conv-novo-nome" placeholder="Nome do novo convênio" style="text-transform:uppercase" autocomplete="off">
+          <button class="bxs pr" onclick="addConvenioManual()"><i class="ti ti-plus"></i> Adicionar</button>
+        </div>
+        <div id="hconv-conv-grid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px"></div>
+      </div>
     </div>
 
     <!-- RESUMO DE MERCADO -->
@@ -665,11 +692,8 @@ html,body{height:100%;background:#F0F4F8;font-family:-apple-system,BlinkMacSyste
     <div class="frow"><label>Nome completo *</label><input type="text" id="d-nome" placeholder="Dr. Nome Sobrenome"></div>
     <div class="frow"><label>CRM</label><input type="text" id="d-crm" placeholder="Ex: CRM/MG 12345"></div>
     <div class="frow"><label>Especialidade *</label>
-      <select id="d-esp" style="height:38px">
-        <option value="BUCO MAXILO">Buco Maxilo</option><option value="CRANIO MAXILO">Crânio Maxilo</option>
-        <option value="OTORRINO">Otorrino</option><option value="PLASTICA">Plástica</option>
-        <option value="NEURO">Neuro</option><option value="CABEÇA E PESCOÇO">Cabeça e Pescoço</option><option value="OUTRO">Outro</option>
-      </select>
+      <input type="text" id="d-esp" list="d-esp-list" placeholder="Ex: BUCO MAXILO, ORTOPEDIA..." style="text-transform:uppercase" autocomplete="off">
+      <datalist id="d-esp-list"></datalist>
     </div>
     <div class="frow">
       <label>Prioridade *</label>
@@ -777,12 +801,26 @@ html,body{height:100%;background:#F0F4F8;font-family:-apple-system,BlinkMacSyste
       </div>
       <div class="frow"><label>Status</label>
         <select id="o-status" style="height:38px">
-          <option>Aberto</option><option>Em cirurgia</option><option>Aguardando faturamento</option><option>Faturado</option><option>Finalizado</option><option>Perdido</option>
+          <option>Aberto</option><option>Em cirurgia</option><option>Aguardando faturamento</option><option>Aprovado</option><option>Faturado</option><option>Finalizado</option><option>Perdido</option>
         </select>
       </div>
     </div>
+    <div class="frow"><label>Procedimento</label><input type="text" id="o-procedimento" list="o-procedimento-list" placeholder="Ex: Cirurgia Ortognática, Reconstrução ATM..." autocomplete="off"><datalist id="o-procedimento-list"></datalist></div>
     <div class="frow"><label>Material / Produto *</label><input type="text" id="o-material" placeholder="Ex: Protese ATM Personalizada"></div>
     <div class="frow"><label>Valor (R$)</label><input type="number" id="o-valor" placeholder="0,00" step="0.01"></div>
+    <div class="sh-sec">Itens do orçamento <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#94A3B8">(qtd · material · v.uni · v.total)</span></div>
+    <div style="overflow-x:auto;border:1px solid #E2E8F0;border-radius:8px">
+      <table class="orc-table" style="min-width:420px;margin-top:0" id="itens-table">
+        <thead><tr>
+          <th style="width:12%">Qtd</th><th style="width:46%">Material</th><th style="width:19%">V.Uni</th><th style="width:19%">V.Total</th><th style="width:4%"></th>
+        </tr></thead>
+        <tbody id="itens-body"></tbody>
+      </table>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin:6px 0 2px">
+      <button type="button" class="bxs" onclick="addItemRow()"><i class="ti ti-plus"></i> Adicionar linha</button>
+      <span style="font-size:11px;color:#64748B">Total itens: <b id="itens-total-txt" style="color:#0F6E56">R$ 0,00</b></span>
+    </div>
     <div class="frow"><label>Observações</label><textarea id="o-obs" placeholder="Detalhes adicionais..."></textarea></div>
     <div class="fact">
       <button class="bcn" onclick="closeModal('modal-orc')">Cancelar</button>
@@ -872,46 +910,131 @@ const FB_CONFIG = {
   messagingSenderId: "842990470415",
   appId:             "1:842990470415:web:9be747a046169f078fea7a"
 };
-let fbRef=null,fbDb=null,isSyncing=false;
+let fbDb=null, fbReady=false, fbListenersOn=false;
 function initFB(){
-  if(fbRef)return true;
+  if(fbReady)return true;
   try{
     const app=firebase.apps.length?firebase.apps[0]:firebase.initializeApp(FB_CONFIG);
     fbDb=firebase.database(app);
-    fbRef=fbDb.ref('medvisit/dados');
     fbDb.ref('.info/connected').on('value',snap=>{setSy(snap.val()===true);});
+    fbReady=true;
     return true;
   }catch(e){console.error('Firebase init:',e);return false;}
 }
-// ══════════════════════════════════════════════
+function fbColl(name){ return fbDb.ref('medvisit/dados/'+name); }
+// Aceita tanto o formato antigo (array, de versões anteriores) quanto o novo
+// (objeto indexado por id) — nunca perde dado já gravado.
+function collToArray(val){
+  if(!val) return [];
+  return Array.isArray(val) ? val.filter(Boolean) : Object.values(val);
+}
+// Grava/atualiza UM registro sem tocar no resto da coleção. É isso que impede
+// que a sincronização de uma pessoa apague o que a outra acabou de salvar:
+// cada orçamento, hospital, visita etc. vive na sua própria chave.
+function fbPutRecord(coll, rec){
+  if(!rec||!rec.id||!initFB()) return;
+  fbColl(coll).child(String(rec.id)).set(rec).then(()=>setSy(true)).catch(e=>{console.error('fbPut '+coll,e);setSy(false,true);});
+}
+function fbDelRecord(coll, id){
+  if(!id||!initFB()) return;
+  fbColl(coll).child(String(id)).remove().then(()=>setSy(true)).catch(e=>{console.error('fbDel '+coll,e);setSy(false,true);});
+}
+// Substitui a coleção inteira — usado só em ações explícitas do usuário
+// (importar backup, restaurar padrão), nunca num salvamento normal.
+function fbOverwriteColl(coll, arr){
+  if(!initFB()) return;
+  const obj={};
+  (arr||[]).forEach(r=>{ if(r&&r.id) obj[String(r.id)]=r; });
+  fbColl(coll).set(obj).then(()=>setSy(true)).catch(e=>{console.error('fbOverwrite '+coll,e);setSy(false,true);});
+}
+function fbPutConvenio(nome){
+  if(!nome||!initFB()) return;
+  fbDb.ref('medvisit/dados/convenios/'+encodeURIComponent(nome)).set(true).catch(e=>console.error('fbPutConvenio',e));
+}
+function fbDelConvenio(nome){
+  if(!nome||!initFB()) return;
+  fbDb.ref('medvisit/dados/convenios/'+encodeURIComponent(nome)).remove().catch(e=>console.error('fbDelConvenio',e));
+}
+function fbPutEspecialidade(nome){
+  if(!nome||!initFB()) return;
+  fbDb.ref('medvisit/dados/especialidades/'+encodeURIComponent(nome)).set(true).catch(e=>console.error('fbPutEspecialidade',e));
+}
+// Liga o "ouvinte" em tempo real de cada coleção: qualquer alteração feita por
+// qualquer pessoa (no celular dela ou no seu) aparece aqui na hora, sem precisar
+// apertar nenhum botão de sincronizar.
+function startRealtimeSync(){
+  if(!initFB()||fbListenersOn) return;
+  fbListenersOn=true;
+  fbColl('visits').on('value',snap=>{
+    const arr=collToArray(snap.val());
+    if(arr.length){ visits=arr; localStorage.setItem('medvisit-visits',JSON.stringify(visits)); render(); checkReminders(); }
+    else if(visits.length){ fbOverwriteColl('visits', visits); }
+  });
+  fbColl('docs').on('value',snap=>{
+    const arr=collToArray(snap.val());
+    if(arr.length){ docs=arr; localStorage.setItem('medvisit-docs',JSON.stringify(docs)); render(); }
+    else if(docs.length){ fbOverwriteColl('docs', docs); }
+  });
+  fbColl('orcs').on('value',snap=>{
+    const arr=collToArray(snap.val());
+    if(arr.length){ orcs=arr; }
+    else if(orcs.length){ fbOverwriteColl('orcs', orcs); }
+    localStorage.setItem('medvisit-orcs',JSON.stringify(orcs));
+    rebuildConvFilter();
+    if(typeof rOrc==='function') rOrc();
+    if(ge('orc-sec-stats')&&ge('orc-sec-stats').style.display!=='none'&&typeof rOrcStats==='function') rOrcStats();
+  });
+  fbColl('hosps').on('value',snap=>{
+    const arr=collToArray(snap.val());
+    if(arr.length){ hosps=arr; }
+    else if(hosps.length){ fbOverwriteColl('hosps', hosps); }
+    localStorage.setItem('medvisit-hosps',JSON.stringify(hosps));
+    if(typeof rHosp==='function') rHosp();
+  });
+  fbColl('agendamentos').on('value',snap=>{
+    const arr=collToArray(snap.val());
+    if(arr.length){ agendamentos=arr; }
+    else if(agendamentos.length){ fbOverwriteColl('agendamentos', agendamentos); }
+    localStorage.setItem('medvisit-agd',JSON.stringify(agendamentos));
+    if(typeof rCal==='function') rCal();
+    if(typeof rUpcoming==='function') rUpcoming();
+  });
+  fbColl('convenios').on('value',snap=>{
+    const val=snap.val();
+    let arr=[];
+    if(val) arr = Array.isArray(val) ? val.filter(Boolean) : Object.keys(val).map(k=>decodeURIComponent(k));
+    if(arr.length){
+      convenios=arr; localStorage.setItem('medvisit-convenios',JSON.stringify(convenios));
+      rebuildConvFilter(); if(typeof rebuildConvSelect==='function') rebuildConvSelect();
+      if(typeof rConvList==='function') rConvList();
+    } else if(convenios.length){ convenios.forEach(fbPutConvenio); }
+  });
+  fbColl('especialidades').on('value',snap=>{
+    const val=snap.val();
+    let arr=[];
+    if(val) arr = Array.isArray(val) ? val.filter(Boolean) : Object.keys(val).map(k=>decodeURIComponent(k));
+    if(arr.length){
+      especialidades=arr; localStorage.setItem('medvisit-especialidades',JSON.stringify(especialidades));
+      if(typeof rebuildEspList==='function') rebuildEspList();
+    } else if(especialidades.length){ especialidades.forEach(fbPutEspecialidade); }
+  });
+}
 
-
+// Botão "Sincronizar": agora a sincronização é automática (tempo real).
+// O botão só verifica a conexão e religa os ouvintes, caso precise.
 function syncManual(){
   const btn = ge('sync-btn');
   const txt = ge('sync-btn-txt');
-  if (!fbRef) { 
-    alert('Firebase não conectado!'); 
-    return; 
-  }
-  btn.className = 'sync-btn syncing';
-  txt.textContent = 'Enviando...';
-  fbRef.set({ visits, docs, orcs, hosps, agendamentos, convenios })
-    .then(() => {
-      setSy(true);
-      btn.className = 'sync-btn done';
-      txt.textContent = '✓ Salvo!';
-      setTimeout(() => {
-        btn.className = 'sync-btn';
-        txt.textContent = 'Sincronizar';
-      }, 2500);
-    })
-    .catch(e => {
-      console.error('syncManual:', e);
-      setSy(false, true);
-      btn.className = 'sync-btn';
-      txt.textContent = 'Sincronizar';
-      alert('Erro ao sincronizar. Verifique sua conexão.');
-    });
+  if(!initFB()){ alert('Firebase não conectado!'); return; }
+  btn.className='sync-btn syncing'; txt.textContent='Verificando...';
+  startRealtimeSync();
+  fbDb.ref('.info/connected').once('value').then(snap=>{
+    const ok=snap.val()===true;
+    setSy(ok);
+    btn.className='sync-btn done';
+    txt.textContent= ok ? '✓ Em dia!' : 'Offline';
+    setTimeout(()=>{btn.className='sync-btn';txt.textContent='Conexão';},2000);
+  }).catch(()=>{ btn.className='sync-btn'; txt.textContent='Conexão'; });
 }
 
 function loadData(){
@@ -942,54 +1065,14 @@ function loadData(){
   }catch(e){visits=JSON.parse(JSON.stringify(V0));docs=JSON.parse(JSON.stringify(D0));setSy(false,true);}
   render();
   checkReminders();
-  // Firebase sync
-  if(!initFB()) return;
-  fbRef.once('value').then(snap=>{
-    const d=snap.val();
-    if(d&&d.visits&&d.visits.length>0){
-      visits=d.visits;
-      docs=d.docs||docs;
-      orcs=d.orcs||orcs;
-      hosps=d.hosps||hosps;
-      agendamentos=d.agendamentos||agendamentos;
-      convenios=d.convenios||convenios;
-      localStorage.setItem('medvisit-visits',JSON.stringify(visits));
-      localStorage.setItem('medvisit-docs',JSON.stringify(docs));
-      localStorage.setItem('medvisit-orcs',JSON.stringify(orcs));
-      localStorage.setItem('medvisit-hosps',JSON.stringify(hosps));
-      localStorage.setItem('medvisit-agd',JSON.stringify(agendamentos));
-      localStorage.setItem('medvisit-convenios',JSON.stringify(convenios));
-      setSy(true);render();
-    } else if(visits.length>0){
-      fbRef.set({visits,docs,orcs,hosps,agendamentos,convenios});
-    }
-    fbRef.on('value',snap2=>{
-      if(isSyncing)return;
-      const d2=snap2.val();
-      if(d2&&d2.visits){
-        visits=d2.visits;docs=d2.docs||docs;orcs=d2.orcs||orcs;
-        hosps=d2.hosps||hosps;agendamentos=d2.agendamentos||agendamentos;
-        convenios=d2.convenios||convenios;
-        setSy(true);render();
-      }
-    });
-  }).catch(e=>console.error('fbLoad:',e));
+  // Liga a sincronização automática em tempo real (sem precisar clicar em nada)
+  startRealtimeSync();
 }
 function saveData(){
   try{
     localStorage.setItem('medvisit-visits',JSON.stringify(visits));
     localStorage.setItem('medvisit-docs',JSON.stringify(docs));
-    localStorage.setItem('medvisit-orcs',JSON.stringify(orcs));
-    localStorage.setItem('medvisit-hosps',JSON.stringify(hosps));
-    localStorage.setItem('medvisit-agd',JSON.stringify(agendamentos));
-    localStorage.setItem('medvisit-convenios',JSON.stringify(convenios));
   }catch(e){}
-  if(fbRef){
-    isSyncing=true;setSy(false);
-    fbRef.set({visits,docs,orcs,hosps,agendamentos,convenios})
-      .then(()=>{setSy(true);setTimeout(()=>{isSyncing=false;},600);})
-      .catch(e=>{console.error('fbSave:',e);setSy(false,true);isSyncing=false;});
-  } else { setSy(true); }
 }
 
 // ── CIDADES ──
@@ -1424,14 +1507,16 @@ function saveVisit(){
   if(editVId){visits=visits.map(v=>v.id===editVId?entry:v);}else{visits.unshift(entry);}
   if(reminderOn && pvVal) scheduleReminder(entry,pvVal);
   closeModal('modal-visit');saveData();render();
+  fbPutRecord('visits', entry);
   toast(editVId?'Visita atualizada ✓':'Visita registrada ✓');
 }
 
-function delVisit(id){if(!confirm('Excluir esta visita?'))return;visits=visits.filter(v=>v.id!==id);saveData();render();toast('Visita excluída');}
+function delVisit(id){if(!confirm('Excluir esta visita?'))return;visits=visits.filter(v=>v.id!==id);saveData();render();fbDelRecord('visits',id);toast('Visita excluída');}
 
 // ── MODAL MÉDICO ──
 function openDocSheet(id){
   editDId=id||null;
+  rebuildEspList();
   const F={nome:'',crm:'',esp:'BUCO MAXILO',prio:'B',cidade:'',uf:'MG',end:'',hosp:'',tel:'',cel:'',email:'',obs:''};
   if(id){
     const d=docs.find(x=>x.id===id);if(!d)return;
@@ -1450,23 +1535,31 @@ function saveDoc(){
   if(!nome){alert('Informe o nome do cirurgião');return;}
   const cidade=ge('d-cidade').value.trim();
   if(!cidade){alert('Informe a cidade');return;}
+  const esp=ge('d-esp').value.trim().toUpperCase();
+  if(!esp){alert('Informe a especialidade');return;}
   const entry={
     id:editDId||('d'+Date.now()),
     nome,crm:ge('d-crm').value.trim(),
-    esp:ge('d-esp').value,prio:ge('d-prio').value,
+    esp,prio:ge('d-prio').value,
     cidade,uf:ge('d-uf').value.trim().toUpperCase(),
     end:ge('d-end').value.trim(),hosp:ge('d-hosp').value.trim(),
     tel:ge('d-tel').value.trim(),cel:ge('d-cel').value.trim(),
     email:ge('d-email').value.trim(),obs:ge('d-obs').value.trim()
   };
   if(editDId){docs=docs.map(d=>d.id===editDId?entry:d);}else{docs.push(entry);}
+  // Registra especialidade nova para uso futuro (autocomplete + banco)
+  if(esp && !ESP_FIXAS.includes(esp) && !especialidades.includes(esp)){
+    especialidades.push(esp); saveEspecialidadesLocal(); fbPutEspecialidade(esp);
+  }
   closeModal('modal-doc');saveData();render();
+  fbPutRecord('docs', entry);
+  rebuildEspList();
   toast(editDId?'Cirurgião atualizado ✓':'Cirurgião cadastrado ✓');
 }
 
 function delDoc(id){
   if(!confirm('Excluir este cirurgião?'))return;
-  docs=docs.filter(d=>d.id!==id);saveData();render();toast('Cirurgião excluído');
+  docs=docs.filter(d=>d.id!==id);saveData();render();fbDelRecord('docs',id);toast('Cirurgião excluído');
 }
 
 // ── MODAIS ──
@@ -1545,13 +1638,13 @@ function importData(){ge('imp-file').click();}
 function handleImport(e){
   const file=e.target.files[0];if(!file)return;
   const r=new FileReader();
-  r.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(d.visits)visits=d.visits;if(d.docs)docs=d.docs;saveData();render();toast('Dados importados ✓');}catch{alert('Arquivo inválido.');}};
+  r.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(d.visits)visits=d.visits;if(d.docs)docs=d.docs;saveData();render();fbOverwriteColl('visits',visits);fbOverwriteColl('docs',docs);toast('Dados importados ✓');}catch{alert('Arquivo inválido.');}};
   r.readAsText(file);e.target.value='';
 }
 function clearData(){
   if(!confirm('Apagar TODOS os dados? Esta ação não pode ser desfeita.'))return;
   visits=JSON.parse(JSON.stringify(V0));docs=JSON.parse(JSON.stringify(D0));
-  saveData();render();toast('Dados restaurados ao padrão');
+  saveData();render();fbOverwriteColl('visits',visits);fbOverwriteColl('docs',docs);toast('Dados restaurados ao padrão');
 }
 
 // ── PWA ──
@@ -1813,6 +1906,7 @@ function saveAgd(){
   }
   saveAgd_data();
   closeModal('modal-agd');
+  fbPutRecord('agendamentos', obj);
   // Forçar re-render completo do calendário com os dados atualizados
   selDay = selDay; // mantém dia selecionado
   rCal();
@@ -1823,6 +1917,7 @@ function saveAgd(){
 function delAgd(id){
   agendamentos = agendamentos.filter(x=>x.id!==id);
   saveAgd_data();
+  fbDelRecord('agendamentos', id);
   rCal();
   rUpcoming();
   toast('Compromisso removido');
@@ -1839,6 +1934,25 @@ function agdEmoji(tipo){
 let convenios = [];
 const CONV_FIXOS = ['SUS','UNIMED','BRADESCO','VALE','IPSEMG','FUSEX','USISAUDE',
                     'GEAP','CASSI','AMIL','SULAMERICA','HAPVIDA','NOTREDAME','PARTICULAR'];
+
+let especialidades = [];
+const ESP_FIXAS = ['BUCO MAXILO','CRANIO MAXILO','OTORRINO','PLASTICA','NEURO','CABEÇA E PESCOÇO','OUTRO'];
+function loadEspecialidades(){
+  try{ especialidades = JSON.parse(localStorage.getItem('medvisit-especialidades')||'[]'); }
+  catch(e){ especialidades=[]; }
+}
+function saveEspecialidadesLocal(){
+  localStorage.setItem('medvisit-especialidades', JSON.stringify(especialidades));
+}
+function allEspecialidades(){
+  const fromDocs = docs.map(d=>(d.esp||'').trim().toUpperCase()).filter(Boolean);
+  return [...new Set([...ESP_FIXAS, ...especialidades, ...fromDocs])].sort();
+}
+function rebuildEspList(){
+  const dl = ge('d-esp-list');
+  if(!dl) return;
+  dl.innerHTML = allEspecialidades().map(e=>`<option value="${e.replace(/"/g,'&quot;')}">`).join('');
+}
 
 function loadConvenios(){
   try{ convenios = JSON.parse(localStorage.getItem('medvisit-convenios')||'[]'); }
@@ -1871,6 +1985,116 @@ function rebuildConvFilter(){
   const dl = ge('conv-filter-list');
   if(!dl) return;
   dl.innerHTML = allConvenios().map(c=>`<option value="${c}">`).join('');
+}
+function filterByConvenio(c){
+  goOrcTab('lista');
+  if(ge('so'))ge('so').value='';
+  if(ge('so-idade'))ge('so-idade').value='';
+  if(ge('so-mes'))ge('so-mes').value='';
+  if(ge('so-conv'))ge('so-conv').value = (c==='NÃO INFORMADO'?'':c);
+  rOrc();
+}
+
+// ═══════════════════════════════════════
+// ── ITENS DO ORÇAMENTO (banco de dados por convênio) ──
+// ═══════════════════════════════════════
+function allProcedimentos(){
+  return [...new Set(orcs.map(o=>(o.procedimento||'').trim()).filter(Boolean))].sort();
+}
+function rebuildProcedimentoList(){
+  const dl = ge('o-procedimento-list');
+  if(!dl) return;
+  dl.innerHTML = allProcedimentos().map(p=>`<option value="${p.replace(/"/g,'&quot;')}">`).join('');
+}
+function itemRowHtml(item){
+  item = item||{};
+  const esc = v=>(v==null?'':String(v)).replace(/"/g,'&quot;');
+  const inp='style="width:100%;border:1px solid #E2E8F0;border-radius:6px;padding:4px 6px;font-size:12px"';
+  return `<td><input type="number" class="it-qtd" value="${item.qtd!=null&&item.qtd!==0?item.qtd:''}" min="0" step="1" oninput="calcItemRow(this)" ${inp} placeholder="0"></td>
+    <td><input type="text" class="it-material" value="${esc(item.material)}" ${inp} placeholder="Material"></td>
+    <td><input type="number" class="it-vuni" value="${item.vuni?item.vuni:''}" step="0.01" oninput="calcItemRow(this)" ${inp} placeholder="0,00"></td>
+    <td><input type="number" class="it-vtotal" value="${item.vtotal?item.vtotal:''}" step="0.01" oninput="updateItensTotalTxt()" ${inp} placeholder="0,00"></td>
+    <td style="text-align:center"><button type="button" onclick="removeItemRow(this)" style="border:none;background:none;color:#94A3B8;cursor:pointer;font-size:14px" title="Remover linha"><i class="ti ti-trash"></i></button></td>`;
+}
+function addItemRow(item){
+  const tr=document.createElement('tr');
+  tr.innerHTML=itemRowHtml(item);
+  ge('itens-body').appendChild(tr);
+}
+function removeItemRow(btn){
+  const tbody=ge('itens-body');
+  const tr=btn.closest('tr');
+  if(tbody.children.length<=1){
+    tr.querySelectorAll('input').forEach(i=>i.value='');
+    updateItensTotalTxt();
+    return;
+  }
+  tr.remove();
+  updateItensTotalTxt();
+}
+function calcItemRow(el){
+  const tr=el.closest('tr');
+  const qtd=parseFloat(tr.querySelector('.it-qtd').value)||0;
+  const vuni=parseFloat(tr.querySelector('.it-vuni').value)||0;
+  if(qtd&&vuni) tr.querySelector('.it-vtotal').value=(qtd*vuni).toFixed(2);
+  updateItensTotalTxt();
+}
+function updateItensTotalTxt(){
+  let total=0;
+  document.querySelectorAll('#itens-body tr').forEach(tr=>{
+    total+=parseFloat(tr.querySelector('.it-vtotal').value)||0;
+  });
+  if(ge('itens-total-txt')) ge('itens-total-txt').textContent='R$ '+total.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+function renderItensRows(items){
+  ge('itens-body').innerHTML='';
+  const list=(items&&items.length)?items:[];
+  const minRows=10;
+  const n=Math.max(list.length,minRows);
+  for(let i=0;i<n;i++) addItemRow(list[i]||{});
+  updateItensTotalTxt();
+}
+function collectItens(){
+  return [...document.querySelectorAll('#itens-body tr')].map(tr=>({
+    qtd:parseFloat(tr.querySelector('.it-qtd').value)||0,
+    material:tr.querySelector('.it-material').value.trim(),
+    vuni:parseFloat(tr.querySelector('.it-vuni').value)||0,
+    vtotal:parseFloat(tr.querySelector('.it-vtotal').value)||0
+  })).filter(it=>it.material||it.qtd||it.vuni||it.vtotal);
+}
+function renderItensQuery(){
+  const q=(ge('itens-query-conv').value||'').trim().toUpperCase();
+  const rows=[];
+  orcs.forEach(o=>{
+    const conv=(o.conv||'').trim().toUpperCase();
+    if(q&&!conv.includes(q)) return;
+    (o.itens||[]).forEach(it=>{
+      rows.push({data:o.data,cliente:o.cliente,paciente:o.paciente,medico:o.medico,
+        qtd:it.qtd,material:it.material,vuni:it.vuni,vtotal:it.vtotal});
+    });
+  });
+  const body=ge('itens-query-body');
+  const emptyEl=ge('itens-query-empty');
+  if(!rows.length){
+    body.innerHTML='';
+    emptyEl.style.display=q?'block':'none';
+    return;
+  }
+  emptyEl.style.display='none';
+  body.innerHTML=rows.sort((a,b)=>(b.data||'').localeCompare(a.data||'')).map(r=>{
+    let dataFmt='—';
+    try{ if(r.data) dataFmt=new Date(r.data+'T00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit'}); }catch(e){}
+    return `<tr>
+      <td style="font-size:11px;white-space:nowrap;color:#64748B">${dataFmt}</td>
+      <td style="font-size:12px">${r.cliente||'—'}</td>
+      <td style="font-size:12px">${r.paciente||'—'}</td>
+      <td style="font-size:12px">${r.medico||'—'}</td>
+      <td style="font-size:12px;text-align:center">${r.qtd||0}</td>
+      <td style="font-size:12px">${r.material||'—'}</td>
+      <td style="font-size:12px;text-align:right">${fmtValor(r.vuni)}</td>
+      <td style="font-size:12px;text-align:right;font-weight:600;color:#0F6E56">${fmtValor(r.vtotal)}</td>
+    </tr>`;
+  }).join('');
 }
 
 // ═══════════════════════════════════════
@@ -1989,7 +2213,7 @@ function rOrcStats(){
   ge('stats-conv-wrap').innerHTML = Object.entries(convMap)
     .sort((a,b)=>b[1].total-a[1].total)
     .map(([c,d])=>`
-      <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:10px">
+      <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:10px;cursor:pointer" onclick="filterByConvenio('${c.replace(/'/g,"\\'")}')" title="Ver orçamentos de ${c}">
         <div style="font-size:12px;font-weight:700;color:${convColors[c]||'#0A1F3C'}">${c}</div>
         <div style="display:flex;justify-content:space-between;margin-top:4px">
           <span style="font-size:11px;color:#64748B">${d.total} orç. · ${d.aprov} aprov.</span>
@@ -2022,6 +2246,8 @@ function rOrcStats(){
         <td style="text-align:right;font-size:12px;font-weight:700;color:${conv>=50?'#166534':conv>=25?'#92400E':'#991B1B'}">${conv}%</td>
       </tr>`;
     }).join('');
+
+  renderItensQuery();
 }
 // ═══════════════════════════════════════
 // ── ORÇAMENTOS ──
@@ -2029,6 +2255,8 @@ function rOrcStats(){
 function openOrcSheet(id){
   editOrcId=id||null;
   rebuildConvSelect();
+  rebuildProcedimentoList();
+  if(ge('itens-query-conv')) ge('itens-query-conv').value='';
   // Popula select de médicos
   const sel=ge('o-medico');
   sel.innerHTML='<option value="">— selecionar —</option>'+
@@ -2054,15 +2282,19 @@ function openOrcSheet(id){
     ge('o-paciente').value=o.paciente||'';
     setConvValue(o.conv||'');
     ge('o-status').value=o.status||'Em aberto';
+    ge('o-procedimento').value=o.procedimento||'';
     ge('o-material').value=o.material||'';
     ge('o-valor').value=o.valor||'';
     ge('o-obs').value=o.obs||'';
+    renderItensRows(o.itens||[]);
   } else {
     ge('orc-title').textContent='Novo orçamento';
     ge('o-data').value=new Date().toISOString().split('T')[0];
     ge('o-num').value=''; ge('o-cliente').value=''; ge('o-medico').value='';
     ge('o-paciente').value=''; ge('o-conv').value=''; ge('o-status').value='Em aberto';
+    ge('o-procedimento').value='';
     ge('o-material').value=''; ge('o-valor').value=''; ge('o-obs').value='';
+    renderItensRows([]);
   }
   openModal('modal-orc');
 }
@@ -2080,9 +2312,11 @@ function saveOrc(){
     paciente:ge('o-paciente').value.trim(),
     conv:getConvValue(),
     status:ge('o-status').value,
+    procedimento:ge('o-procedimento').value.trim(),
     material,
     valor:parseFloat(ge('o-valor').value)||0,
-    obs:ge('o-obs').value.trim()
+    obs:ge('o-obs').value.trim(),
+    itens:collectItens()
   };
   if(editOrcId){
     const i=orcs.findIndex(x=>x.id===editOrcId);
@@ -2095,10 +2329,13 @@ function saveOrc(){
   if(convVal && !CONV_FIXOS.includes(convVal) && !convenios.includes(convVal)){
     convenios.push(convVal);
     saveConvenios();
+    fbPutConvenio(convVal);
   }
   saveNewData();
   closeModal('modal-orc');
+  fbPutRecord('orcs', o);
   rebuildConvFilter();
+  rebuildProcedimentoList();
   rOrc();
   toast(editOrcId?'Orçamento atualizado':'Orçamento salvo');
 }
@@ -2106,7 +2343,7 @@ function saveOrc(){
 function delOrc(id){
   if(!confirm('Excluir este orçamento?'))return;
   orcs=orcs.filter(x=>x.id!==id);
-  saveNewData(); rOrc(); toast('Orçamento excluído');
+  saveNewData(); rOrc(); fbDelRecord('orcs',id); toast('Orçamento excluído');
 }
 
 function fmtValor(v){
@@ -2296,14 +2533,22 @@ function saveHosp(){
   } else {
     hosps.unshift(h);
   }
+  // Convênios aceitos por este hospital também entram no cadastro geral de convênios
+  h.conv.split(',').map(c=>c.trim().toUpperCase()).filter(Boolean).forEach(c=>{
+    if(!CONV_FIXOS.includes(c) && !convenios.includes(c)){
+      convenios.push(c); saveConvenios(); fbPutConvenio(c);
+    }
+  });
   saveNewData(); closeModal('modal-hosp'); rHosp();
+  fbPutRecord('hosps', h);
+  rebuildConvFilter();
   toast(editHospId?'Hospital atualizado':'Hospital salvo');
 }
 
 function delHosp(id){
   if(!confirm('Excluir este hospital?'))return;
   hosps=hosps.filter(x=>x.id!==id);
-  saveNewData(); rHosp(); toast('Hospital excluído');
+  saveNewData(); rHosp(); fbDelRecord('hosps',id); toast('Hospital excluído');
 }
 
 function toggleHosp(id){
@@ -2315,6 +2560,55 @@ function toggleHosp(id){
 
 function hospIni(nome){
   return nome.replace(/^(hospital|clínica|clinica|santa)\s+/i,'').trim().split(/\s+/).slice(0,2).map(w=>w[0]?.toUpperCase()||'').join('');
+}
+
+// ── SUB-ABAS Hospitais / Convênios ──
+function goHConvTab(tab){
+  ge('hctab-hosp').classList.toggle('on',tab==='hosp');
+  ge('hctab-conv').classList.toggle('on',tab==='conv');
+  ge('hconv-sec-hosp').style.display = tab==='hosp' ? '' : 'none';
+  ge('hconv-sec-conv').style.display = tab==='conv' ? '' : 'none';
+  if(tab==='conv') rConvList();
+}
+function addConvenioManual(){
+  const el=ge('conv-novo-nome');
+  const nome=(el.value||'').trim().toUpperCase();
+  if(!nome){toast('Digite o nome do convênio');return;}
+  if(CONV_FIXOS.includes(nome)||convenios.includes(nome)){toast('Esse convênio já está cadastrado');el.value='';return;}
+  convenios.push(nome);
+  saveConvenios();
+  fbPutConvenio(nome);
+  el.value='';
+  rebuildConvFilter();
+  if(typeof rebuildConvSelect==='function') rebuildConvSelect();
+  rConvList();
+  toast('Convênio cadastrado ✓');
+}
+function delConvenioManual(nome){
+  if(!confirm('Remover "'+nome+'" da lista de convênios?'))return;
+  convenios=convenios.filter(c=>c!==nome);
+  saveConvenios();
+  fbDelConvenio(nome);
+  rebuildConvFilter();
+  if(typeof rebuildConvSelect==='function') rebuildConvSelect();
+  rConvList();
+  toast('Convênio removido');
+}
+function rConvList(){
+  const wrap=ge('hconv-conv-grid');
+  if(!wrap) return;
+  const list=allConvenios();
+  wrap.innerHTML = list.map(c=>{
+    const count = orcs.filter(o=>(o.conv||'').trim().toUpperCase()===c).length;
+    const fixo = CONV_FIXOS.includes(c);
+    return `<div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:10px;display:flex;justify-content:space-between;align-items:center;gap:6px">
+      <div style="min-width:0">
+        <div style="font-size:12px;font-weight:700;color:#0A1F3C;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c}</div>
+        <div style="font-size:11px;color:#64748B">${count} orçamento${count===1?'':'s'}</div>
+      </div>
+      ${fixo?'':`<button type="button" onclick="delConvenioManual('${c.replace(/'/g,"\\'")}')" style="border:none;background:none;color:#94A3B8;cursor:pointer;flex-shrink:0" title="Remover"><i class="ti ti-trash"></i></button>`}
+    </div>`;
+  }).join('');
 }
 
 function rHosp(){
@@ -2554,6 +2848,7 @@ loadData();
 loadNewData();
 loadAgd();
 loadConvenios();
+loadEspecialidades();
 // Re-renderiza calendário após carregar agendamentos
 rCal();
 rUpcoming();
