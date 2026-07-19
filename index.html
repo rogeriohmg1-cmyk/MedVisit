@@ -433,6 +433,7 @@ html,body{height:100%;background:#F0F4F8;font-family:-apple-system,BlinkMacSyste
       <!-- Sub-abas -->
       <div class="orc-tabs">
         <div class="orc-tab on" onclick="goOrcTab('lista')" id="otab-lista">📋 Orçamentos</div>
+        <div class="orc-tab" onclick="goOrcTab('cirurgias')" id="otab-cirurgias">🔪 Cirurgias</div>
         <div class="orc-tab" onclick="goOrcTab('stats')" id="otab-stats">📊 Estatísticas</div>
       </div>
 
@@ -528,6 +529,46 @@ html,body{height:100%;background:#F0F4F8;font-family:-apple-system,BlinkMacSyste
           </table>
         </div>
       </div><!-- /orc-sec-stats -->
+
+      <!-- CIRURGIAS DO MÊS -->
+      <div id="orc-sec-cirurgias" style="display:none">
+        <div class="orc-summary">
+          <div class="orc-stat"><div class="orc-stat-n" id="cir-total-n">0</div><div class="orc-stat-l">Cirurgias</div></div>
+          <div class="orc-stat"><div class="orc-stat-n" id="cir-aberto-n" style="color:#92400E">R$0</div><div class="orc-stat-l">Em aberto</div></div>
+          <div class="orc-stat"><div class="orc-stat-n" id="cir-faturado-n" style="color:#0F6E56">R$0</div><div class="orc-stat-l">Faturado</div></div>
+        </div>
+        <div class="fbar" style="margin-bottom:8px">
+          <input class="fi-c" type="month" id="cir-mes" onchange="rCirurgias();rCirCalendar();" style="color:#0F172A">
+          <input class="fi-s" type="text" id="cir-busca" placeholder="Buscar hospital, paciente, médico..." oninput="rCirurgias()">
+          <select class="fi-c" id="cir-status-f" onchange="rCirurgias()">
+            <option value="">Todos status</option>
+            <option value="Aberto">🟡 Aberto</option>
+            <option value="Faturado">🟢 Faturado</option>
+          </select>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div class="orc-tabs" style="border-bottom:none;margin-bottom:0">
+            <div class="orc-tab on" onclick="goCirView('lista')" id="cirv-lista" style="padding:6px 12px">📋 Lista</div>
+            <div class="orc-tab" onclick="goCirView('cal')" id="cirv-cal" style="padding:6px 12px">📅 Calendário</div>
+          </div>
+          <button class="bxs pr" onclick="openCirurgiaSheet()"><i class="ti ti-plus"></i> Nova cirurgia</button>
+        </div>
+
+        <div id="cir-view-lista">
+          <div id="lcir"></div>
+          <div id="cir-empty" class="empty" style="display:none"><i class="ti ti-scissors" style="font-size:2rem;display:block;margin-bottom:6px;opacity:.3"></i>Nenhuma cirurgia neste período</div>
+        </div>
+
+        <div id="cir-view-cal" style="display:none">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <button class="bxs" onclick="cirCalNav(-1)"><i class="ti ti-chevron-left"></i></button>
+            <div id="cir-cal-titulo" style="font-size:13px;font-weight:700;color:#0A1F3C"></div>
+            <button class="bxs" onclick="cirCalNav(1)"><i class="ti ti-chevron-right"></i></button>
+          </div>
+          <div id="cir-cal-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;font-size:11px"></div>
+          <div id="cir-cal-dia-sel" style="margin-top:14px"></div>
+        </div>
+      </div><!-- /orc-sec-cirurgias -->
 
     </div><!-- /sec-o -->
 
@@ -803,17 +844,71 @@ html,body{height:100%;background:#F0F4F8;font-family:-apple-system,BlinkMacSyste
         <thead><tr>
           <th style="width:12%">Qtd</th><th style="width:46%">Material</th><th style="width:19%">V.Uni</th><th style="width:19%">V.Total</th><th style="width:4%"></th>
         </tr></thead>
-        <tbody id="itens-body"></tbody>
+        <tbody id="itens-body" data-total-id="itens-total-txt" data-valor-id="o-valor" data-lock-flag="orc"></tbody>
       </table>
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin:6px 0 2px">
-      <button type="button" class="bxs" onclick="addItemRow()"><i class="ti ti-plus"></i> Adicionar linha</button>
+      <button type="button" class="bxs" onclick="addItemRow('itens-body')"><i class="ti ti-plus"></i> Adicionar linha</button>
       <span style="font-size:11px;color:#64748B">Total itens: <b id="itens-total-txt" style="color:#0F6E56">R$ 0,00</b></span>
     </div>
     <div class="frow"><label>Observações</label><textarea id="o-obs" placeholder="Detalhes adicionais..."></textarea></div>
     <div class="fact">
       <button class="bcn" onclick="closeModal('modal-orc')">Cancelar</button>
       <button class="bsv" onclick="saveOrc()"><i class="ti ti-check"></i> Salvar orçamento</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CIRURGIA -->
+<div class="modal-ov" id="modal-cir" onclick="closeModal('modal-cir',event)">
+  <div class="sheet" onclick="event.stopPropagation()">
+    <div class="sh-handle"></div>
+    <div class="sh-title" id="cir-title">Nova cirurgia</div>
+    <div class="frow"><label>Vincular a um orçamento já cadastrado (opcional)</label>
+      <input type="text" id="cir-link-orc" list="cir-orc-list" placeholder="Digite o cliente ou paciente do orçamento..." autocomplete="off" oninput="linkOrcToCirurgia(this.value)">
+      <datalist id="cir-orc-list"></datalist>
+      <div id="cir-link-info" style="font-size:11px;color:#0F6E56;margin-top:4px;display:none"></div>
+    </div>
+    <div class="sh-sec">Identificação</div>
+    <div class="frow"><label>Data da cirurgia *</label><input type="date" id="cir-data"></div>
+    <div class="frow"><label>Hospital *</label><input type="text" id="cir-hospital" list="o-cliente-list" placeholder="Ex: Santa Casa Diamantina" autocomplete="off" style="text-transform:uppercase"></div>
+    <div class="frow"><label>Médico</label>
+      <select id="cir-medico" style="height:38px"><option value="">— selecionar —</option></select>
+    </div>
+    <div class="frow"><label>Paciente</label><input type="text" id="cir-paciente" placeholder="Nome do paciente"></div>
+    <div class="sh-sec">Comercial</div>
+    <div class="fg2">
+      <div class="frow"><label>Convênio</label>
+        <input type="text" id="cir-conv" placeholder="Ex: SUS, UNIMED, IPSEMG..." style="text-transform:uppercase;margin-bottom:6px">
+        <div id="cir-conv-chips" style="display:flex;flex-wrap:wrap;gap:5px"></div>
+      </div>
+      <div class="frow"><label>Status *</label>
+        <div style="display:flex;gap:6px">
+          <button type="button" class="bxs" id="cir-st-aberto" onclick="setCirStatus('Aberto')" style="flex:1;justify-content:center">🟡 Aberto</button>
+          <button type="button" class="bxs" id="cir-st-faturado" onclick="setCirStatus('Faturado')" style="flex:1;justify-content:center">🟢 Faturado</button>
+        </div>
+      </div>
+    </div>
+    <div class="frow"><label>Procedimento</label><input type="text" id="cir-procedimento" list="o-procedimento-list" placeholder="Ex: Cirurgia Ortognática, Reconstrução ATM..." autocomplete="off"></div>
+    <div class="frow"><label>Material / Produto</label><input type="text" id="cir-material" placeholder="Ex: Protese ATM Personalizada"></div>
+    <div class="frow"><label>Valor (R$)</label><input type="text" inputmode="decimal" id="cir-valor" placeholder="0,00" oninput="valorEditadoManualCir=true"></div>
+    <div class="sh-sec">Itens da cirurgia <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#94A3B8">(qtd · material · v.uni · v.total)</span></div>
+    <div style="overflow-x:auto;border:1px solid #E2E8F0;border-radius:8px">
+      <table class="orc-table" style="min-width:420px;margin-top:0">
+        <thead><tr>
+          <th style="width:12%">Qtd</th><th style="width:46%">Material</th><th style="width:19%">V.Uni</th><th style="width:19%">V.Total</th><th style="width:4%"></th>
+        </tr></thead>
+        <tbody id="citens-body" data-total-id="citens-total-txt" data-valor-id="cir-valor" data-lock-flag="cir"></tbody>
+      </table>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin:6px 0 2px">
+      <button type="button" class="bxs" onclick="addItemRow('citens-body')"><i class="ti ti-plus"></i> Adicionar linha</button>
+      <span style="font-size:11px;color:#64748B">Total itens: <b id="citens-total-txt" style="color:#0F6E56">R$ 0,00</b></span>
+    </div>
+    <div class="frow"><label>Observações</label><textarea id="cir-obs" placeholder="Detalhes adicionais..."></textarea></div>
+    <div class="fact">
+      <button class="bcn" onclick="closeModal('modal-cir')">Cancelar</button>
+      <button class="bsv" onclick="saveCirurgia()"><i class="ti ti-check"></i> Salvar cirurgia</button>
     </div>
   </div>
 </div>
@@ -996,6 +1091,14 @@ function startRealtimeSync(){
     localStorage.setItem('medvisit-hosps',JSON.stringify(hosps));
     if(!arr.length && hosps.length) fbOverwriteColl('hosps', hosps);
     if(typeof rHosp==='function') rHosp();
+  });
+  fbColl('cirurgias').on('value',snap=>{
+    const arr=collToArray(snap.val());
+    cirurgias = arr.length||cirurgias.length ? mergeById(cirurgias, arr) : cirurgias;
+    localStorage.setItem('medvisit-cirurgias',JSON.stringify(cirurgias));
+    if(!arr.length && cirurgias.length) fbOverwriteColl('cirurgias', cirurgias);
+    if(typeof rCirurgias==='function') rCirurgias();
+    if(typeof rCirCalendar==='function') rCirCalendar();
   });
   fbColl('agendamentos').on('value',snap=>{
     const arr=collToArray(snap.val());
@@ -1637,7 +1740,7 @@ function checkReminders(){
 
 // ── IMPORT / EXPORT ──
 function exportData(){
-  const blob=new Blob([JSON.stringify({visits,docs,orcs,hosps,agd:agendamentos,convenios},null,2)],{type:'application/json'});
+  const blob=new Blob([JSON.stringify({visits,docs,orcs,hosps,cirurgias,agd:agendamentos,convenios,especialidades},null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');a.href=url;a.download='medvisit_backup.json';a.click();
   URL.revokeObjectURL(url);toast('Backup exportado ✓');
@@ -1838,19 +1941,24 @@ function rRadar(){
 // ── ESTADO GLOBAL - NOVOS MÓDULOS ──
 let orcs = [{"num": "s/n", "data": "2026-07-04", "cliente": "Unimed BH", "medico": "", "paciente": "Doralice Luz Reuter", "conv": "Unimed BH", "status": "Aberto", "material": "", "valor": 16927.18, "obs": "", "id": "orc1783295770"}, {"num": "S/N", "data": "2026-07-04", "cliente": "Gestho - Hospital BH", "medico": "", "paciente": "Maria Luisa Almes Morais", "conv": "IPSM", "status": "Finalizado", "material": "", "valor": 8044.07, "obs": "", "id": "orc1783295771"}, {"num": "16804", "data": "2026-07-03", "cliente": "Fundação São Francisco Xavier", "medico": "Michel Campos Ribeiro", "paciente": "Yasmin Ellen Teixeira Pires", "conv": "IPSEMG", "status": "", "material": "Articulação ATM", "valor": 15200.0, "obs": "", "id": "orc1783295772"}, {"num": "16577", "data": "2026-06-15", "cliente": "Unimed Lafaiete", "medico": "Thiago Martelli", "paciente": "Tatiana Flavia Souza Santana", "conv": "Unimed Lafaiete", "status": "", "material": "", "valor": 76000.0, "obs": "", "id": "orc1783295773"}, {"num": "16535", "data": "2026-06-11", "cliente": "Mater Dei Santo Agostinho", "medico": "Flavio Sirihal Werkema", "paciente": "Alriméria Ester Oliveira Almeida", "conv": "CEF", "status": "", "material": "Placas e Parafusos", "valor": 40980.0, "obs": "", "id": "orc1783295774"}, {"num": "16538", "data": "2026-06-11", "cliente": "HapVida Assistencia Medica S/A", "medico": "", "paciente": "", "conv": "HapVida", "status": "", "material": "", "valor": 5250.0, "obs": "", "id": "orc1783295775"}, {"num": "16536", "data": "2026-06-11", "cliente": "Irmandade Sra da Saude", "medico": "Saulo", "paciente": "Paulo Roberto Mendes Quadros", "conv": "Demanda Judicial", "status": "", "material": "", "valor": 523124.0, "obs": "", "id": "orc1783295776"}, {"num": "16454", "data": "2026-06-05", "cliente": "Hospital Luxemburgo", "medico": "Marcelo Cardoso", "paciente": "Mateus Fernandes Falcao", "conv": "Fusex", "status": "", "material": "", "valor": 9144.0, "obs": "", "id": "orc1783295777"}, {"num": "16333", "data": "2026-05-22", "cliente": "Mater Dei Contorno", "medico": "Belini Freire Maia", "paciente": "Isabela Faria Campos", "conv": "Sulamerica", "status": "Aberto", "material": "", "valor": 112926.0, "obs": "", "id": "orc1783295778"}, {"num": "s/n", "data": "2026-05-17", "cliente": "Unimed BH", "medico": "", "paciente": "Paloma Raquel Barbosa Pereira", "conv": "Unimed BH", "status": "Aberto", "material": "", "valor": 96333.05, "obs": "", "id": "orc1783295779"}, {"num": "s/n", "data": "2026-05-15", "cliente": "Mater Dei Contorno", "medico": "Antonio Albuquerque Brito", "paciente": "Fernanda Nunes Ribeiro", "conv": "CEF", "status": "Aberto", "material": "", "valor": 48210.0, "obs": "", "id": "orc1783295780"}, {"num": "s/n", "data": "2026-05-14", "cliente": "Mater Dei Betim", "medico": "Andre Henrique Almeida", "paciente": "Diego Henrique Pereira da Silva", "conv": "Bradesco", "status": "Aberto", "material": "", "valor": 30000.0, "obs": "", "id": "orc1783295781"}, {"num": "S/N", "data": "2026-05-14", "cliente": "Biocor", "medico": "Guilherme Lacerda de Toledo", "paciente": "Angelita Amorim Souza", "conv": "Sulamerica", "status": "", "material": "", "valor": 48900.0, "obs": "", "id": "orc1783295782"}, {"num": "s/n", "data": "2026-05-07", "cliente": "Biocor", "medico": "Guilherme Lacerda de Toledo", "paciente": "Alessandra Cristina Milagres", "conv": "Sulamerica", "status": "Aberto", "material": "", "valor": 24040.0, "obs": "", "id": "orc1783295783"}, {"num": "12491", "data": "2026-05-07", "cliente": "Santa Casa Misericordia Diamantina", "medico": "Saulo", "paciente": "Paulo Roberto Mendes Quadros", "conv": "Demanda Judicial", "status": "Aberto", "material": "", "valor": 311064.0, "obs": "", "id": "orc1783295784"}, {"num": "S/N", "data": "2026-05-07", "cliente": "Hospital Luxemburgo", "medico": "Marcelo Cardoso", "paciente": "Euler Iago de Araujo", "conv": "Fusex", "status": "Faturado", "material": "", "valor": 11700.0, "obs": "", "id": "orc1783295785"}, {"num": "16084", "data": "2026-05-04", "cliente": "Santa Casa Misericordia BH", "medico": "Patrick Fandini", "paciente": "Doralice Luz Reuter", "conv": "Unimed BH", "status": "Aberto", "material": "", "valor": 1899.0, "obs": "", "id": "orc1783295786"}, {"num": "s/n", "data": "2026-04-29", "cliente": "Lactário e Posto de Pericultura", "medico": "Gabriel Augusto Silva Carvalho", "paciente": "Alessandro Roberto Cordeiro", "conv": "Particular", "status": "Aberto", "material": "", "valor": 1899.0, "obs": "", "id": "orc1783295787"}, {"num": "15647", "data": "2026-03-27", "cliente": "Hospital Luxemburgo", "medico": "Lorenzo Testolini", "paciente": "Flavia Aline Silva Resende", "conv": "Particular", "status": "Perdido", "material": "", "valor": 3006.0, "obs": "", "id": "orc1783295788"}, {"num": "s/n", "data": "2026-03-26", "cliente": "Unimed BH", "medico": "", "paciente": "Barbara Suelen Silva Barcelos", "conv": "Unimed BH", "status": "Perdido", "material": "", "valor": 168488.0, "obs": "", "id": "orc1783295789"}, {"num": "s/n", "data": "2026-03-26", "cliente": "Unimed BH", "medico": "", "paciente": "Gilmar Rocha Andrade", "conv": "Unimed BH", "status": "Perdido", "material": "", "valor": 168488.0, "obs": "", "id": "orc1783295790"}, {"num": "s/n", "data": "2026-03-26", "cliente": "Unimed BH", "medico": "", "paciente": "Gilmar Rocha Andrade", "conv": "Unimed BH", "status": "", "material": "", "valor": 92388.0, "obs": "", "id": "orc1783295791"}, {"num": "15563", "data": "2026-03-23", "cliente": "Hospital Luxemburgo", "medico": "Marcelo Cardoso", "paciente": "Geralda Soares Ramos", "conv": "Unimed BH", "status": "Perdido", "material": "", "valor": 3900.0, "obs": "", "id": "orc1783295792"}, {"num": "12492", "data": "2026-03-11", "cliente": "Santa Casa Misericordia JF", "medico": "", "paciente": "Marquilene Cardoso Souza", "conv": "Unimed Juiz de Fora", "status": "Aberto", "material": "", "valor": 134044.0, "obs": "", "id": "orc1783295793"}, {"num": "s/n", "data": "2026-02-09", "cliente": "Unimed BH", "medico": "", "paciente": "Marquilene Cardoso Souza", "conv": "Unimed BH", "status": "Perdido", "material": "", "valor": 338250.0, "obs": "", "id": "orc1783295794"}, {"num": "14280", "data": "2026-01-22", "cliente": "Hospital Luxemburgo", "medico": "Marcelo Cardoso", "paciente": "Olga Gomes e Souza Oliveira", "conv": "IPSEMG", "status": "Perdido", "material": "", "valor": 4550.71, "obs": "", "id": "orc1783295795"}, {"num": "14655", "data": "2026-01-07", "cliente": "IPSM", "medico": "", "paciente": "", "conv": "IPSM", "status": "Perdido", "material": "", "valor": 4500.0, "obs": "", "id": "orc1783295796"}, {"num": "15394", "data": "2024-03-11", "cliente": "Unimed BH", "medico": "", "paciente": "Natalie Rafaelle Caetano Santos", "conv": "Unimed BH", "status": "Perdido", "material": "", "valor": 12800.0, "obs": "", "id": "orc1783295797"}], hosps = [], editOrcId = null, editHospId = null;
 
+let cirurgias = [], editCirId = null;
+
 // ── LOAD/SAVE NOVOS MÓDULOS ──
 function loadNewData(){
   try{
     const so=localStorage.getItem('medvisit-orcs');
     const sh=localStorage.getItem('medvisit-hosps');
+    const sc=localStorage.getItem('medvisit-cirurgias');
     orcs=so?JSON.parse(so):[];
     hosps=sh?JSON.parse(sh):[];
-  }catch(e){orcs=[];hosps=[];}
+    cirurgias=sc?JSON.parse(sc):[];
+  }catch(e){orcs=[];hosps=[];cirurgias=[];}
 }
 function saveNewData(){
   try{
     localStorage.setItem('medvisit-orcs',JSON.stringify(orcs));
     localStorage.setItem('medvisit-hosps',JSON.stringify(hosps));
+    localStorage.setItem('medvisit-cirurgias',JSON.stringify(cirurgias));
   }catch(e){}
 }
 
@@ -1974,29 +2082,34 @@ function allConvenios(){
   const fromOrcs = orcs.map(o=>o.conv||'').filter(Boolean);
   return [...new Set([...CONV_FIXOS, ...convenios, ...fromOrcs])].sort();
 }
-function getConvValue(){
-  return (ge('o-conv').value||'').trim().toUpperCase();
+function getConvValue(inputId){
+  inputId = inputId||'o-conv';
+  return (ge(inputId).value||'').trim().toUpperCase();
 }
-function setConvValue(val){
-  ge('o-conv').value = val||'';
-  // highlight chip ativo
-  document.querySelectorAll('.conv-chip').forEach(b=>{
+function setConvValue(val, inputId){
+  inputId = inputId||'o-conv';
+  ge(inputId).value = val||'';
+  const wrapId = inputId==='cir-conv' ? 'cir-conv-chips' : 'o-conv-chips';
+  document.querySelectorAll('#'+wrapId+' .conv-chip').forEach(b=>{
     b.style.background = b.textContent===val ? '#0A1F3C' : '';
     b.style.color = b.textContent===val ? '#fff' : '';
   });
 }
+function buildConvChips(wrapId, inputId){
+  const chipsWrap = ge(wrapId);
+  if(!chipsWrap) return;
+  const atual = getConvValue(inputId);
+  chipsWrap.innerHTML = allConvenios().map(c=>{
+    const esc=c.replace(/'/g,"\\'");
+    const on = c===atual;
+    return `<button type="button" onclick="setConvValue('${esc}','${inputId}')" class="conv-chip" style="${on?'background:#0A1F3C;color:#fff':''}">${c}</button>`;
+  }).join('');
+}
 function rebuildConvSelect(){
   const dl = ge('conv-list');
   if(dl) dl.innerHTML = allConvenios().map(c=>`<option value="${c}">`).join('');
-  const chipsWrap = ge('o-conv-chips');
-  if(chipsWrap){
-    const atual = getConvValue();
-    chipsWrap.innerHTML = allConvenios().map(c=>{
-      const esc=c.replace(/'/g,"\\'");
-      const on = c===atual;
-      return `<button type="button" onclick="setConvValue('${esc}')" class="conv-chip" style="${on?'background:#0A1F3C;color:#fff':''}">${c}</button>`;
-    }).join('');
-  }
+  buildConvChips('o-conv-chips','o-conv');
+  buildConvChips('cir-conv-chips','cir-conv');
 }
 function rebuildConvFilter(){
   const dl = ge('conv-filter-list');
@@ -2030,24 +2143,26 @@ function itemRowHtml(item){
   return `<td><input type="text" inputmode="decimal" class="it-qtd" value="${item.qtd!=null&&item.qtd!==0?item.qtd:''}" oninput="calcItemRow(this)" ${inp} placeholder="0"></td>
     <td><input type="text" class="it-material" value="${esc(item.material)}" ${inp} placeholder="Material"></td>
     <td><input type="text" inputmode="decimal" class="it-vuni" value="${item.vuni?item.vuni:''}" oninput="calcItemRow(this)" ${inp} placeholder="0,00"></td>
-    <td><input type="text" inputmode="decimal" class="it-vtotal" value="${item.vtotal?item.vtotal:''}" oninput="updateItensTotalTxt()" ${inp} placeholder="0,00"></td>
+    <td><input type="text" inputmode="decimal" class="it-vtotal" value="${item.vtotal?item.vtotal:''}" oninput="calcItemRow(this)" ${inp} placeholder="0,00"></td>
     <td style="text-align:center"><button type="button" onclick="removeItemRow(this)" style="border:none;background:none;color:#94A3B8;cursor:pointer;font-size:14px" title="Remover linha"><i class="ti ti-trash"></i></button></td>`;
 }
-function addItemRow(item){
+function addItemRow(bodyId, item){
+  const tbody=ge(bodyId);
+  if(!tbody) return;
   const tr=document.createElement('tr');
   tr.innerHTML=itemRowHtml(item);
-  ge('itens-body').appendChild(tr);
+  tbody.appendChild(tr);
 }
 function removeItemRow(btn){
-  const tbody=ge('itens-body');
   const tr=btn.closest('tr');
+  const tbody=tr.closest('tbody');
   if(tbody.children.length<=1){
     tr.querySelectorAll('input').forEach(i=>i.value='');
-    updateItensTotalTxt();
+    updateItensTotalTxt(tbody.id);
     return;
   }
   tr.remove();
-  updateItensTotalTxt();
+  updateItensTotalTxt(tbody.id);
 }
 // Aceita "150.50" (ponto decimal) e "150,50" ou "1.500,50" (formato brasileiro)
 function toNum(v){
@@ -2059,35 +2174,45 @@ function toNum(v){
 }
 function calcItemRow(el){
   const tr=el.closest('tr');
+  const tbody=tr.closest('tbody');
   const qtd=toNum(tr.querySelector('.it-qtd').value);
   const vuni=toNum(tr.querySelector('.it-vuni').value);
   if(qtd&&vuni) tr.querySelector('.it-vtotal').value=(qtd*vuni).toFixed(2).replace('.',',');
-  updateItensTotalTxt();
+  updateItensTotalTxt(tbody.id);
 }
+// valorEditadoManual: trava o campo Valor do orçamento; valorEditadoManualCir: trava o da cirurgia.
+// Cada tbody de itens carrega em data-* pra onde deve escrever o total e o valor, e qual trava usar.
 let valorEditadoManual=false;
-function updateItensTotalTxt(){
+let valorEditadoManualCir=false;
+function updateItensTotalTxt(bodyId){
+  const tbody=ge(bodyId);
+  if(!tbody) return;
   let total=0;
-  document.querySelectorAll('#itens-body tr').forEach(tr=>{
+  tbody.querySelectorAll('tr').forEach(tr=>{
     total+=toNum(tr.querySelector('.it-vtotal').value);
   });
-  if(ge('itens-total-txt')) ge('itens-total-txt').textContent='R$ '+total.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
-  // Preenche/atualiza o campo Valor de cima automaticamente com a soma dos itens,
-  // a menos que o usuário já tenha digitado algo manualmente nele. Nunca apaga
-  // um valor existente só porque ainda não há itens somando.
-  if(!valorEditadoManual && ge('o-valor') && total>0){
-    ge('o-valor').value = total.toFixed(2).replace('.',',');
+  const totalElId=tbody.dataset.totalId, valorElId=tbody.dataset.valorId, lockFlag=tbody.dataset.lockFlag;
+  if(totalElId&&ge(totalElId)) ge(totalElId).textContent='R$ '+total.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  // Preenche/atualiza o campo Valor automaticamente com a soma dos itens, a menos que
+  // o usuário já tenha digitado algo manualmente nele. Nunca apaga um valor existente
+  // só porque ainda não há itens somando.
+  const locked = lockFlag==='cir' ? valorEditadoManualCir : valorEditadoManual;
+  if(!locked && valorElId && ge(valorElId) && total>0){
+    ge(valorElId).value = total.toFixed(2).replace('.',',');
   }
 }
-function renderItensRows(items){
-  ge('itens-body').innerHTML='';
+function renderItensRows(bodyId, items){
+  const tbody=ge(bodyId);
+  if(!tbody) return;
+  tbody.innerHTML='';
   const list=(items&&items.length)?items:[];
   const minRows=10;
   const n=Math.max(list.length,minRows);
-  for(let i=0;i<n;i++) addItemRow(list[i]||{});
-  updateItensTotalTxt();
+  for(let i=0;i<n;i++) addItemRow(bodyId, list[i]||{});
+  updateItensTotalTxt(bodyId);
 }
-function collectItens(){
-  return [...document.querySelectorAll('#itens-body tr')].map(tr=>{
+function collectItens(bodyId){
+  return [...document.querySelectorAll('#'+bodyId+' tr')].map(tr=>{
     const qEl=tr.querySelector('.it-qtd'), mEl=tr.querySelector('.it-material'),
           uEl=tr.querySelector('.it-vuni'), tEl=tr.querySelector('.it-vtotal');
     return {
@@ -2139,10 +2264,13 @@ function renderItensQuery(){
 
 function goOrcTab(tab){
   ge('otab-lista').classList.toggle('on', tab==='lista');
+  ge('otab-cirurgias').classList.toggle('on', tab==='cirurgias');
   ge('otab-stats').classList.toggle('on', tab==='stats');
   ge('orc-sec-lista').style.display = tab==='lista' ? '' : 'none';
+  ge('orc-sec-cirurgias').style.display = tab==='cirurgias' ? '' : 'none';
   ge('orc-sec-stats').style.display = tab==='stats' ? '' : 'none';
   if(tab==='stats') rOrcStats();
+  if(tab==='cirurgias'){ rCirurgias(); if(cirView==='cal') rCirCalendar(); }
 }
 
 function rOrcStats(){
@@ -2288,6 +2416,16 @@ function rOrcStats(){
 // ═══════════════════════════════════════
 // ── ORÇAMENTOS ──
 // ═══════════════════════════════════════
+function rebuildClienteList(){
+  const clienteList=ge('o-cliente-list');
+  if(clienteList){
+    const clientes=[...new Set([
+      ...orcs.map(o=>(o.cliente||'').trim().toUpperCase()),
+      ...hosps.map(h=>(h.nome||'').trim().toUpperCase())
+    ].filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+    clienteList.innerHTML=clientes.map(c=>`<option value="${c.replace(/"/g,'&quot;')}">`).join('');
+  }
+}
 function openOrcSheet(id){
   editOrcId=id||null;
   valorEditadoManual=false;
@@ -2300,14 +2438,7 @@ function openOrcSheet(id){
     docs.slice().sort((a,b)=>a.nome.localeCompare(b.nome))
       .map(d=>`<option value="${d.nome}">${d.nome}${d.cidade?' ('+d.cidade+')':''}</option>`).join('');
   // Popula lista de clientes/hospitais já cadastrados (histórico de orçamentos + cadastro de hospitais)
-  const clienteList=ge('o-cliente-list');
-  if(clienteList){
-    const clientes=[...new Set([
-      ...orcs.map(o=>(o.cliente||'').trim().toUpperCase()),
-      ...hosps.map(h=>(h.nome||'').trim().toUpperCase())
-    ].filter(Boolean))].sort((a,b)=>a.localeCompare(b));
-    clienteList.innerHTML=clientes.map(c=>`<option value="${c.replace(/"/g,'&quot;')}">`).join('');
-  }
+  rebuildClienteList();
 
   if(id){
     const o=orcs.find(x=>x.id===id);if(!o)return;
@@ -2323,7 +2454,7 @@ function openOrcSheet(id){
     ge('o-material').value=o.material||'';
     ge('o-valor').value=o.valor?String(o.valor).replace('.',','):'';
     ge('o-obs').value=o.obs||'';
-    renderItensRows(o.itens||[]);
+    renderItensRows('itens-body', o.itens||[]);
   } else {
     ge('orc-title').textContent='Novo orçamento';
     ge('o-data').value=new Date().toISOString().split('T')[0];
@@ -2331,7 +2462,7 @@ function openOrcSheet(id){
     ge('o-paciente').value=''; ge('o-conv').value=''; ge('o-status').value='Em aberto';
     ge('o-procedimento').value='';
     ge('o-material').value=''; ge('o-valor').value=''; ge('o-obs').value='';
-    renderItensRows([]);
+    renderItensRows('itens-body', []);
   }
   openModal('modal-orc');
 }
@@ -2340,7 +2471,7 @@ function saveOrc(){
  try{
   const num=ge('o-num').value.trim();
   const cliente=ge('o-cliente').value.trim().toUpperCase();
-  const itensArr=collectItens();
+  const itensArr=collectItens('itens-body');
   const itensTotal=itensArr.reduce((s,it)=>s+(it.vtotal||0),0);
   let material=ge('o-material').value.trim();
   if(!material && itensArr.length){
@@ -2399,6 +2530,284 @@ function delOrc(id){
 function fmtValor(v){
   if(!v||v===0)return'—';
   return'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+
+// ═══════════════════════════════════════
+// ── CIRURGIAS DO MÊS ──
+// ═══════════════════════════════════════
+let linkedOrcId=null;
+let cirStatusAtual='Aberto';
+let cirView='lista';
+let cirCalYear=new Date().getFullYear(), cirCalMonth=new Date().getMonth();
+
+function rebuildCirOrcList(){
+  const dl=ge('cir-orc-list');
+  if(!dl) return;
+  dl.innerHTML = orcs.slice().sort((a,b)=>(b.data||'').localeCompare(a.data||'')).map(o=>{
+    let df=o.data||'';
+    try{ if(df) df=new Date(df+'T00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit'}); }catch(e){}
+    const label=`${o.cliente||''} - ${o.paciente||'(sem paciente)'} - ${df} [#${o.id}]`;
+    return `<option value="${label.replace(/"/g,'&quot;')}">`;
+  }).join('');
+}
+function linkOrcToCirurgia(value){
+  const m=/\[#([^\]]+)\]\s*$/.exec(value||'');
+  if(!m) return;
+  const o=orcs.find(x=>x.id===m[1]);
+  if(!o) return;
+  if(o.data) ge('cir-data').value=o.data;
+  ge('cir-hospital').value=o.cliente||'';
+  ge('cir-medico').value=o.medico||'';
+  ge('cir-paciente').value=o.paciente||'';
+  setConvValue(o.conv||'','cir-conv');
+  ge('cir-procedimento').value=o.procedimento||'';
+  ge('cir-material').value=o.material||'';
+  valorEditadoManualCir=false;
+  if(o.itens && o.itens.length) renderItensRows('citens-body', o.itens);
+  if(o.valor) ge('cir-valor').value=String(o.valor).replace('.',',');
+  linkedOrcId=o.id;
+  const info=ge('cir-link-info');
+  info.style.display='block';
+  info.textContent='Vinculado ao orçamento nº '+(o.num||'S/N')+' — dados preenchidos, pode ajustar à vontade.';
+}
+function setCirStatus(status){
+  cirStatusAtual=status;
+  ge('cir-st-aberto').classList.toggle('pr', status==='Aberto');
+  ge('cir-st-faturado').classList.toggle('pr', status==='Faturado');
+}
+function openCirurgiaSheet(id){
+  editCirId=id||null;
+  linkedOrcId=null;
+  valorEditadoManualCir=false;
+  rebuildConvSelect();
+  rebuildProcedimentoList();
+  rebuildCirOrcList();
+  rebuildClienteList();
+  ge('cir-link-orc').value='';
+  ge('cir-link-info').style.display='none';
+  const sel=ge('cir-medico');
+  sel.innerHTML='<option value="">— selecionar —</option>'+
+    docs.slice().sort((a,b)=>a.nome.localeCompare(b.nome))
+      .map(d=>`<option value="${d.nome}">${d.nome}${d.cidade?' ('+d.cidade+')':''}</option>`).join('');
+
+  if(id){
+    const c=cirurgias.find(x=>x.id===id); if(!c)return;
+    ge('cir-title').textContent='Editar cirurgia';
+    ge('cir-data').value=c.data||'';
+    ge('cir-hospital').value=c.hospital||'';
+    ge('cir-medico').value=c.medico||'';
+    ge('cir-paciente').value=c.paciente||'';
+    setConvValue(c.conv||'','cir-conv');
+    setCirStatus(c.status||'Aberto');
+    ge('cir-procedimento').value=c.procedimento||'';
+    ge('cir-material').value=c.material||'';
+    ge('cir-valor').value=c.valor?String(c.valor).replace('.',','):'';
+    ge('cir-obs').value=c.obs||'';
+    linkedOrcId=c.orcId||null;
+    renderItensRows('citens-body', c.itens||[]);
+  } else {
+    ge('cir-title').textContent='Nova cirurgia';
+    ge('cir-data').value=new Date().toISOString().split('T')[0];
+    ge('cir-hospital').value=''; ge('cir-medico').value=''; ge('cir-paciente').value='';
+    ge('cir-conv').value=''; setCirStatus('Aberto');
+    ge('cir-procedimento').value=''; ge('cir-material').value=''; ge('cir-valor').value='';
+    ge('cir-obs').value='';
+    renderItensRows('citens-body', []);
+  }
+  openModal('modal-cir');
+}
+function saveCirurgia(){
+ try{
+  const data=ge('cir-data').value;
+  const hospital=ge('cir-hospital').value.trim().toUpperCase();
+  if(!data||!hospital){ toast('Preencha Data e Hospital'); return; }
+  const itensArr=collectItens('citens-body');
+  const itensTotal=itensArr.reduce((s,it)=>s+(it.vtotal||0),0);
+  let material=ge('cir-material').value.trim();
+  if(!material && itensArr.length) material=itensArr.map(it=>it.material).filter(Boolean).join('; ');
+  let valor=toNum(ge('cir-valor').value);
+  if(!valor && itensTotal) valor=itensTotal;
+  const c={
+    id:editCirId||'cir'+Date.now(),
+    data, hospital,
+    medico:ge('cir-medico').value,
+    paciente:ge('cir-paciente').value.trim(),
+    conv:getConvValue('cir-conv'),
+    status:cirStatusAtual,
+    procedimento:ge('cir-procedimento').value.trim(),
+    material, valor,
+    obs:ge('cir-obs').value.trim(),
+    itens:itensArr,
+    orcId:linkedOrcId,
+    updatedAt:Date.now()
+  };
+  if(editCirId){
+    const i=cirurgias.findIndex(x=>x.id===editCirId);
+    if(i>-1) cirurgias[i]=c;
+  } else {
+    cirurgias.unshift(c);
+  }
+  const convVal=getConvValue('cir-conv');
+  if(convVal && !CONV_FIXOS.includes(convVal) && !convenios.includes(convVal)){
+    convenios.push(convVal); saveConvenios(); fbPutConvenio(convVal);
+  }
+  saveNewData();
+  closeModal('modal-cir');
+  fbPutRecord('cirurgias', c);
+  rebuildConvFilter();
+  rCirurgias();
+  if(cirView==='cal') rCirCalendar();
+  toast(editCirId?'Cirurgia atualizada':'Cirurgia salva');
+ }catch(e){
+   console.error('saveCirurgia:',e);
+   alert('Erro ao salvar a cirurgia: '+e.message+'\n\nTire um print desta mensagem e envie pro suporte.');
+ }
+}
+function delCirurgia(id){
+  if(!confirm('Excluir esta cirurgia?'))return;
+  cirurgias=cirurgias.filter(x=>x.id!==id);
+  saveNewData(); rCirurgias(); if(cirView==='cal') rCirCalendar();
+  fbDelRecord('cirurgias', id);
+  toast('Cirurgia excluída');
+}
+function toggleCirurgiaStatus(id){
+  const c=cirurgias.find(x=>x.id===id); if(!c) return;
+  c.status = c.status==='Faturado' ? 'Aberto' : 'Faturado';
+  c.updatedAt=Date.now();
+  saveNewData();
+  fbPutRecord('cirurgias', c);
+  rCirurgias();
+  if(cirView==='cal') rCirCalendar();
+}
+function goCirView(v){
+  cirView=v;
+  ge('cirv-lista').classList.toggle('on', v==='lista');
+  ge('cirv-cal').classList.toggle('on', v==='cal');
+  ge('cir-view-lista').style.display = v==='lista' ? '' : 'none';
+  ge('cir-view-cal').style.display = v==='cal' ? '' : 'none';
+  if(v==='cal') rCirCalendar();
+}
+function rCirurgias(){
+  if(ge('cir-mes') && !ge('cir-mes').value){
+    const now=new Date();
+    ge('cir-mes').value = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  }
+  const mes = ge('cir-mes') ? ge('cir-mes').value : '';
+  const busca = (ge('cir-busca')?ge('cir-busca').value:'').toLowerCase();
+  const stF = ge('cir-status-f') ? ge('cir-status-f').value : '';
+  let list = cirurgias.slice();
+  if(mes) list = list.filter(c=>(c.data||'').startsWith(mes));
+  if(busca) list = list.filter(c=>
+    (c.hospital||'').toLowerCase().includes(busca) ||
+    (c.paciente||'').toLowerCase().includes(busca) ||
+    (c.medico||'').toLowerCase().includes(busca)
+  );
+  if(stF) list = list.filter(c=>(c.status||'Aberto')===stF);
+  list.sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+
+  const kpiBase = mes ? cirurgias.filter(c=>(c.data||'').startsWith(mes)) : cirurgias;
+  const totalAberto = kpiBase.filter(c=>(c.status||'Aberto')==='Aberto').reduce((s,c)=>s+(c.valor||0),0);
+  const totalFaturado = kpiBase.filter(c=>c.status==='Faturado').reduce((s,c)=>s+(c.valor||0),0);
+  if(ge('cir-total-n')) ge('cir-total-n').textContent = kpiBase.length;
+  if(ge('cir-aberto-n')) ge('cir-aberto-n').textContent = fmtValor(totalAberto);
+  if(ge('cir-faturado-n')) ge('cir-faturado-n').textContent = fmtValor(totalFaturado);
+
+  const wrap=ge('lcir');
+  if(!wrap) return;
+  if(ge('cir-empty')) ge('cir-empty').style.display = list.length ? 'none' : '';
+  wrap.innerHTML = list.map(c=>{
+    let df=c.data||'';
+    try{ if(df) df=new Date(df+'T00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric'}); }catch(e){}
+    const aberto=(c.status||'Aberto')==='Aberto';
+    return `<div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:10px 12px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <div style="min-width:0">
+          <div style="font-size:11px;color:#64748B">${df}${c.conv?' · '+c.conv:''}</div>
+          <div style="font-size:13px;font-weight:700;color:#0A1F3C;margin-top:2px">${c.hospital||'—'}</div>
+          <div style="font-size:12px;color:#334155">${c.paciente||'(sem paciente)'}${c.medico?' · '+c.medico:''}</div>
+          ${c.procedimento?`<div style="font-size:11px;color:#64748B;margin-top:2px">${c.procedimento}</div>`:''}
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:13px;font-weight:700;color:#0F6E56">${fmtValor(c.valor)}</div>
+          <button type="button" onclick="toggleCirurgiaStatus('${c.id}')" class="bxs" style="margin-top:4px;font-size:10px;${aberto?'background:#FFFBEB;color:#92400E;border-color:#FDE68A':'background:#DCFCE7;color:#166534;border-color:#BBF7D0'}">${aberto?'🟡 Aberto':'🟢 Faturado'}</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button type="button" class="bxs" onclick="openCirurgiaSheet('${c.id}')"><i class="ti ti-edit"></i> Editar</button>
+        <button type="button" class="bxs d" onclick="delCirurgia('${c.id}')"><i class="ti ti-trash"></i> Excluir</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function cirCalNav(delta){
+  cirCalMonth+=delta;
+  if(cirCalMonth<0){cirCalMonth=11;cirCalYear--;}
+  if(cirCalMonth>11){cirCalMonth=0;cirCalYear++;}
+  if(ge('cir-mes')) ge('cir-mes').value = cirCalYear+'-'+String(cirCalMonth+1).padStart(2,'0');
+  rCirCalendar();
+  rCirurgias();
+}
+function rCirCalendar(){
+  if(!ge('cir-cal-grid')) return;
+  const mesFiltro = ge('cir-mes') ? ge('cir-mes').value : '';
+  if(mesFiltro){
+    const [y,m]=mesFiltro.split('-').map(Number);
+    cirCalYear=y; cirCalMonth=m-1;
+  }
+  const nomesMes=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  ge('cir-cal-titulo').textContent = nomesMes[cirCalMonth]+' de '+cirCalYear;
+  const first = new Date(cirCalYear, cirCalMonth, 1);
+  const startDow = first.getDay();
+  const daysInMonth = new Date(cirCalYear, cirCalMonth+1, 0).getDate();
+  const mesStr = cirCalYear+'-'+String(cirCalMonth+1).padStart(2,'0');
+  const porDia={};
+  cirurgias.filter(c=>(c.data||'').startsWith(mesStr)).forEach(c=>{
+    const d=parseInt((c.data||'').split('-')[2],10);
+    if(!porDia[d]) porDia[d]=[];
+    porDia[d].push(c);
+  });
+  let html='';
+  ['D','S','T','Q','Q','S','S'].forEach(d=>{ html+=`<div style="text-align:center;font-weight:700;color:#94A3B8;padding:4px 0">${d}</div>`; });
+  for(let i=0;i<startDow;i++) html+='<div></div>';
+  const hoje=new Date();
+  const isHoje = d=> hoje.getFullYear()===cirCalYear && hoje.getMonth()===cirCalMonth && hoje.getDate()===d;
+  for(let d=1; d<=daysInMonth; d++){
+    const items=porDia[d]||[];
+    const temAberto=items.some(c=>(c.status||'Aberto')==='Aberto');
+    const bg = items.length ? (temAberto?'#FFFBEB':'#DCFCE7') : '#F8FAFC';
+    const bd = isHoje(d) ? '2px solid #0A1F3C' : '1px solid #E2E8F0';
+    html+=`<div onclick="showCirDia(${d})" style="cursor:pointer;text-align:center;padding:6px 2px;border-radius:8px;background:${bg};border:${bd}">
+      <div style="font-weight:600;color:#0A1F3C">${d}</div>
+      ${items.length?`<div style="font-size:9px;color:#64748B">${items.length}</div>`:''}
+    </div>`;
+  }
+  ge('cir-cal-grid').innerHTML=html;
+  ge('cir-cal-dia-sel').innerHTML='';
+}
+function showCirDia(d){
+  const mesStr = cirCalYear+'-'+String(cirCalMonth+1).padStart(2,'0');
+  const dd = String(d).padStart(2,'0');
+  const dataStr = mesStr+'-'+dd;
+  const mm = String(cirCalMonth+1).padStart(2,'0');
+  const items = cirurgias.filter(c=>c.data===dataStr).sort((a,b)=>(a.hospital||'').localeCompare(b.hospital||''));
+  const wrap=ge('cir-cal-dia-sel');
+  if(!items.length){ wrap.innerHTML=`<div style="font-size:12px;color:#94A3B8;text-align:center;padding:10px">Nenhuma cirurgia em ${dd}/${mm}</div>`; return; }
+  wrap.innerHTML = `<div style="font-size:11px;font-weight:700;color:#94A3B8;text-transform:uppercase;margin-bottom:6px">Cirurgias em ${dd}/${mm}</div>` +
+    items.map(c=>{
+      const aberto=(c.status||'Aberto')==='Aberto';
+      return `<div onclick="openCirurgiaSheet('${c.id}')" style="cursor:pointer;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:10px 12px;margin-bottom:6px">
+        <div style="display:flex;justify-content:space-between">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#0A1F3C">${c.hospital||'—'}</div>
+            <div style="font-size:12px;color:#334155">${c.paciente||'(sem paciente)'}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:12px;font-weight:700;color:#0F6E56">${fmtValor(c.valor)}</div>
+            <div style="font-size:10px;color:${aberto?'#92400E':'#166534'}">${aberto?'🟡 Aberto':'🟢 Faturado'}</div>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
 }
 
 function clearOrcFilters(){
