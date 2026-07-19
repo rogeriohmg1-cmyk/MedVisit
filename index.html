@@ -538,7 +538,9 @@ html,body{height:100%;background:#F0F4F8;font-family:-apple-system,BlinkMacSyste
           <div class="orc-stat"><div class="orc-stat-n" id="cir-faturado-n" style="color:#0F6E56">R$0</div><div class="orc-stat-l">Faturado</div></div>
         </div>
         <div class="fbar" style="margin-bottom:8px">
-          <input class="fi-c" type="month" id="cir-mes" onchange="rCirurgias();rCirCalendar();" style="color:#0F172A">
+          <input class="fi-c" type="date" id="cir-de" onchange="rCirurgias();rCirCalendar();" style="color:#0F172A" title="De">
+          <input class="fi-c" type="date" id="cir-ate" onchange="rCirurgias();rCirCalendar();" style="color:#0F172A" title="Até">
+          <button class="bxs" id="cir-mes-clear" onclick="ge('cir-de').value='';ge('cir-ate').value='';rCirurgias();rCirCalendar();" style="font-size:11px" title="Ver cirurgias de todos os períodos"><i class="ti ti-x"></i> Limpar período</button>
           <input class="fi-s" type="text" id="cir-busca" placeholder="Buscar hospital, paciente, médico..." oninput="rCirurgias()">
           <select class="fi-c" id="cir-status-f" onchange="rCirurgias()">
             <option value="">Todos status</option>
@@ -2655,6 +2657,11 @@ function saveCirurgia(){
   closeModal('modal-cir');
   fbPutRecord('cirurgias', c);
   rebuildConvFilter();
+  // Limpa o filtro de período pra garantir que a cirurgia recém-salva sempre apareça,
+  // mesmo se você tinha um período diferente selecionado (ex: cirurgia de data antiga)
+  if(ge('cir-de')) ge('cir-de').value='';
+  if(ge('cir-ate')) ge('cir-ate').value='';
+  if(data){ const [y,m]=data.split('-').map(Number); cirCalYear=y; cirCalMonth=m-1; }
   rCirurgias();
   if(cirView==='cal') rCirCalendar();
   toast(editCirId?'Cirurgia atualizada':'Cirurgia salva');
@@ -2688,15 +2695,12 @@ function goCirView(v){
   if(v==='cal') rCirCalendar();
 }
 function rCirurgias(){
-  if(ge('cir-mes') && !ge('cir-mes').value){
-    const now=new Date();
-    ge('cir-mes').value = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
-  }
-  const mes = ge('cir-mes') ? ge('cir-mes').value : '';
+  const de = ge('cir-de') ? ge('cir-de').value : '';
+  const ate = ge('cir-ate') ? ge('cir-ate').value : '';
   const busca = (ge('cir-busca')?ge('cir-busca').value:'').toLowerCase();
   const stF = ge('cir-status-f') ? ge('cir-status-f').value : '';
-  let list = cirurgias.slice();
-  if(mes) list = list.filter(c=>(c.data||'').startsWith(mes));
+  const noPeriodo = c => (!de || (c.data||'')>=de) && (!ate || (c.data||'')<=ate);
+  let list = cirurgias.filter(noPeriodo);
   if(busca) list = list.filter(c=>
     (c.hospital||'').toLowerCase().includes(busca) ||
     (c.paciente||'').toLowerCase().includes(busca) ||
@@ -2705,7 +2709,7 @@ function rCirurgias(){
   if(stF) list = list.filter(c=>(c.status||'Aberto')===stF);
   list.sort((a,b)=>(b.data||'').localeCompare(a.data||''));
 
-  const kpiBase = mes ? cirurgias.filter(c=>(c.data||'').startsWith(mes)) : cirurgias;
+  const kpiBase = cirurgias.filter(noPeriodo);
   const totalAberto = kpiBase.filter(c=>(c.status||'Aberto')==='Aberto').reduce((s,c)=>s+(c.valor||0),0);
   const totalFaturado = kpiBase.filter(c=>c.status==='Faturado').reduce((s,c)=>s+(c.valor||0),0);
   if(ge('cir-total-n')) ge('cir-total-n').textContent = kpiBase.length;
@@ -2743,17 +2747,10 @@ function cirCalNav(delta){
   cirCalMonth+=delta;
   if(cirCalMonth<0){cirCalMonth=11;cirCalYear--;}
   if(cirCalMonth>11){cirCalMonth=0;cirCalYear++;}
-  if(ge('cir-mes')) ge('cir-mes').value = cirCalYear+'-'+String(cirCalMonth+1).padStart(2,'0');
   rCirCalendar();
-  rCirurgias();
 }
 function rCirCalendar(){
   if(!ge('cir-cal-grid')) return;
-  const mesFiltro = ge('cir-mes') ? ge('cir-mes').value : '';
-  if(mesFiltro){
-    const [y,m]=mesFiltro.split('-').map(Number);
-    cirCalYear=y; cirCalMonth=m-1;
-  }
   const nomesMes=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
   ge('cir-cal-titulo').textContent = nomesMes[cirCalMonth]+' de '+cirCalYear;
   const first = new Date(cirCalYear, cirCalMonth, 1);
