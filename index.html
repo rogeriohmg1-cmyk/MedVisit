@@ -538,6 +538,7 @@ html,body{height:100%;background:#F0F4F8;font-family:-apple-system,BlinkMacSyste
           <div class="orc-stat"><div class="orc-stat-n" id="cir-total-n">0</div><div class="orc-stat-l">Cirurgias</div></div>
           <div class="orc-stat"><div class="orc-stat-n" id="cir-aberto-n" style="color:#92400E">R$0</div><div class="orc-stat-l">Em aberto</div></div>
           <div class="orc-stat"><div class="orc-stat-n" id="cir-faturado-n" style="color:#0F6E56">R$0</div><div class="orc-stat-l">Faturado</div></div>
+          <div class="orc-stat"><div class="orc-stat-n" id="cir-comissao-n" style="color:#7C3AED">R$0</div><div class="orc-stat-l">Comissão</div></div>
         </div>
         <div class="fbar" style="margin-bottom:8px">
           <input class="fi-c" type="date" id="cir-de" onchange="rCirurgias();rCirCalendar();" style="color:#0F172A" title="De">
@@ -2257,6 +2258,7 @@ function buscarHistoricoValor(conv, procedimento, excludeId){
   if(!registros.length) return null;
 
   let candidatos = [];
+  let forte = false; // true = procedimento bateu (confiável pra preencher sozinho); false = só o convênio (só vira dica)
   if(procedimento){
     // 1) mesmo convênio + procedimento idêntico
     candidatos = registros.filter(r=>(r.procedimento||'').trim().toUpperCase()===procedimento);
@@ -2267,12 +2269,16 @@ function buscarHistoricoValor(conv, procedimento, excludeId){
         return p && (p.includes(procedimento) || procedimento.includes(p));
       });
     }
+    if(candidatos.length) forte = true;
   }
-  // 3) só o convênio, pega o mais recente
+  // 3) só o convênio, pega o mais recente (fraco: vira só dica, não preenche sozinho)
   if(!candidatos.length) candidatos = registros;
 
   candidatos.sort((a,b)=>(b.data||'').localeCompare(a.data||''));
-  return candidatos[0]||null;
+  const hit = candidatos[0];
+  if(!hit) return null;
+  hit.forte = forte;
+  return hit;
 }
 window._sugestaoAtual={orc:null,cir:null};
 function sugerirValor(kind){
@@ -2297,12 +2303,14 @@ function sugerirValor(kind){
 
   if(hintEl){
     hintEl.style.display='block';
-    hintEl.innerHTML='💡 Último valor p/ '+conv+(hit.procedimento?' · '+hit.procedimento:'')+' ('+dataFmt+'): <b>'+valorFmt+'</b> — <a href="javascript:void(0)" onclick="aplicarValorSugerido(\''+kind+'\')" style="color:#0F6E56;font-weight:600">usar este valor</a>';
+    const rotulo = hit.forte ? 'Valor sugerido' : 'Último valor deste convênio (procedimento diferente)';
+    hintEl.innerHTML='💡 '+rotulo+' p/ '+conv+(hit.procedimento?' · '+hit.procedimento:'')+' ('+dataFmt+'): <b>'+valorFmt+'</b> — <a href="javascript:void(0)" onclick="aplicarValorSugerido(\''+kind+'\')" style="color:#0F6E56;font-weight:600">usar este valor</a>';
   }
 
-  // Preenche sozinho só se o campo Valor ainda estiver vazio e o usuário não tiver digitado nada nele
+  // Só preenche os campos sozinho quando o procedimento bateu (match forte).
+  // Se foi só pelo convênio, mostra a dica acima e espera o usuário clicar em "usar este valor".
   const locked = kind==='cir' ? valorEditadoManualCir : valorEditadoManual;
-  if(!locked && ge(valorId) && !toNum(ge(valorId).value)){
+  if(hit.forte && !locked && ge(valorId) && !toNum(ge(valorId).value)){
     aplicarValorSugerido(kind);
   }
 }
@@ -2570,7 +2578,7 @@ function openOrcSheet(id){
     ge('orc-title').textContent='Novo orçamento';
     ge('o-data').value=new Date().toISOString().split('T')[0];
     ge('o-num').value=''; ge('o-cliente').value=''; ge('o-medico').value='';
-    ge('o-paciente').value=''; ge('o-conv').value=''; ge('o-status').value='Em aberto';
+    ge('o-paciente').value=''; ge('o-conv').value=''; ge('o-status').value='Aberto';
     ge('o-procedimento').value='';
     ge('o-material').value=''; ge('o-valor').value=''; ge('o-obs').value='';
     ge('o-comissao-pct').value='3';
@@ -2838,9 +2846,15 @@ function rCirurgias(){
   const kpiBase = cirurgias.filter(noPeriodo);
   const totalAberto = kpiBase.filter(c=>(c.status||'Aberto')==='Aberto').reduce((s,c)=>s+(c.valor||0),0);
   const totalFaturado = kpiBase.filter(c=>c.status==='Faturado').reduce((s,c)=>s+(c.valor||0),0);
+  const totalComissao = kpiBase.reduce((s,c)=>{
+    if(c.comissaoValor!=null) return s+c.comissaoValor;
+    const pct = c.comissaoPct!=null ? c.comissaoPct : 3; // cirurgias antigas sem o campo: assume 3%
+    return s+((c.valor||0)*(pct/100));
+  },0);
   if(ge('cir-total-n')) ge('cir-total-n').textContent = kpiBase.length;
   if(ge('cir-aberto-n')) ge('cir-aberto-n').textContent = fmtValor(totalAberto);
   if(ge('cir-faturado-n')) ge('cir-faturado-n').textContent = fmtValor(totalFaturado);
+  if(ge('cir-comissao-n')) ge('cir-comissao-n').textContent = fmtValor(totalComissao);
 
   const wrap=ge('lcir');
   if(!wrap) return;
