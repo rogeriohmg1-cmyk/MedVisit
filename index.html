@@ -340,6 +340,7 @@ html,body{height:100%;background:#F0F4F8;font-family:-apple-system,BlinkMacSyste
     </div>
     <div class="hdr-r">
       <div class="sy sy-ok" id="sync"><i class="ti ti-device-floppy"></i><span id="stxt">Salvo</span></div>
+      <button type="button" onclick="enviarTudoNuvem()" title="Enviar dados deste aparelho para a nuvem" style="border:1px solid #CBD5E1;background:#fff;border-radius:8px;padding:5px 8px;font-size:12px;color:#0F766E;cursor:pointer;margin-left:6px">↑ Nuvem</button>
       <button type="button" onclick="doLogout()" title="Sair" style="border:1px solid #CBD5E1;background:#fff;border-radius:8px;padding:5px 8px;font-size:12px;color:#475569;cursor:pointer;margin-left:6px">Sair</button>
       <button class="sync-btn" id="sync-btn" onclick="syncManual()" title="A sincronização agora é automática. Toque para checar a conexão.">
         <i class="ti ti-cloud-upload"></i><span id="sync-btn-txt">Conexão</span>
@@ -1183,6 +1184,30 @@ function doReset(){
 function doLogout(){
   if(!fbAuth) return;
   fbAuth.signOut().then(()=>location.reload());
+}
+
+// Envia para a nuvem tudo que está neste aparelho (só adiciona/atualiza, NUNCA apaga).
+function enviarTudoNuvem(){
+  if(!initFB()||!fbAuth||!fbAuth.currentUser||fbAuth.currentUser.isAnonymous){ alert('Entre com sua conta primeiro.'); return; }
+  if(!confirm('Enviar os dados DESTE aparelho para a nuvem?\n\nSó adiciona ou atualiza registros. Nada é apagado.')) return;
+  const cols={visits:visits,docs:docs,orcs:orcs,hosps:hosps,cirurgias:cirurgias,agendamentos:agendamentos,precos:precos,fornecedores:fornecedores};
+  const ps=[]; const resumo=[]; let semId=0;
+  Object.keys(cols).forEach(c=>{
+    let n=0;
+    (cols[c]||[]).forEach(r=>{
+      if(r&&r.id){ ps.push(fbColl(c).child(String(r.id)).set(r)); n++; } else semId++;
+    });
+    resumo.push(c+': '+n);
+  });
+  (convenios||[]).forEach(n=>{ if(typeof n==='string'&&n) ps.push(fbDb.ref('medvisit/dados/convenios/'+encodeURIComponent(n)).set(true)); });
+  (especialidades||[]).forEach(n=>{ if(typeof n==='string'&&n) ps.push(fbDb.ref('medvisit/dados/especialidades/'+encodeURIComponent(n)).set(true)); });
+  Promise.all(ps).then(()=>{
+    setSy(true);
+    alert('Enviado com sucesso!\n\n'+resumo.join('\n')+(semId?'\n\nRegistros sem id (não enviados): '+semId:''));
+  }).catch(e=>{
+    setSy(false,true);
+    alert('Erro ao enviar: '+(e&&e.code||e)+'\n\nVerifique se as regras do banco estão com o UID da sua conta.');
+  });
 }
 function fbColl(name){ return fbDb.ref('medvisit/dados/'+name); }
 // Aceita tanto o formato antigo (array, de versões anteriores) quanto o novo
