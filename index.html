@@ -17,6 +17,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;background:#F0F4F8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#0F172A;font-size:14px}
@@ -297,6 +298,17 @@ html,body{height:100%;background:#F0F4F8;font-family:-apple-system,BlinkMacSyste
 </style>
 </head>
 <body>
+<div id="login-ov" style="position:fixed;inset:0;z-index:9999;background:#F0F4F8;display:flex;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;border-radius:14px;box-shadow:0 4px 24px rgba(15,23,42,.12);padding:26px 22px;width:100%;max-width:340px">
+    <div style="font-size:20px;font-weight:700;color:#0F172A;margin-bottom:4px">MedVisit</div>
+    <div style="font-size:12px;color:#64748B;margin-bottom:16px">Entre com seu e-mail e senha</div>
+    <input type="email" id="lg-email" placeholder="E-mail" autocomplete="username" style="width:100%;border:1px solid #CBD5E1;border-radius:8px;padding:11px;font-size:14px;margin-bottom:8px">
+    <input type="password" id="lg-pass" placeholder="Senha" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()" style="width:100%;border:1px solid #CBD5E1;border-radius:8px;padding:11px;font-size:14px;margin-bottom:8px">
+    <div id="lg-err" style="color:#DC2626;font-size:12px;min-height:16px;margin-bottom:8px"></div>
+    <button type="button" id="lg-btn" onclick="doLogin()" style="width:100%;background:#0F766E;color:#fff;border:0;border-radius:8px;padding:12px;font-size:14px;font-weight:600;cursor:pointer">Entrar</button>
+    <div style="text-align:center;margin-top:12px"><a href="#" onclick="doReset();return false" style="font-size:12px;color:#64748B">Esqueci a senha</a></div>
+  </div>
+</div>
 <div id="ib">
   <span><i class="ti ti-download"></i> Instalar MedVisit na tela inicial</span>
   <div style="display:flex;gap:7px;align-items:center">
@@ -328,6 +340,7 @@ html,body{height:100%;background:#F0F4F8;font-family:-apple-system,BlinkMacSyste
     </div>
     <div class="hdr-r">
       <div class="sy sy-ok" id="sync"><i class="ti ti-device-floppy"></i><span id="stxt">Salvo</span></div>
+      <button type="button" onclick="doLogout()" title="Sair" style="border:1px solid #CBD5E1;background:#fff;border-radius:8px;padding:5px 8px;font-size:12px;color:#475569;cursor:pointer;margin-left:6px">Sair</button>
       <button class="sync-btn" id="sync-btn" onclick="syncManual()" title="A sincronização agora é automática. Toque para checar a conexão.">
         <i class="ti ti-cloud-upload"></i><span id="sync-btn-txt">Conexão</span>
       </button>
@@ -1130,16 +1143,46 @@ const FB_CONFIG = {
   messagingSenderId: "842990470415",
   appId:             "1:842990470415:web:9be747a046169f078fea7a"
 };
-let fbDb=null, fbReady=false, fbListenersOn=false;
+let fbDb=null, fbAuth=null, fbReady=false, fbListenersOn=false;
 function initFB(){
   if(fbReady)return true;
   try{
     const app=firebase.apps.length?firebase.apps[0]:firebase.initializeApp(FB_CONFIG);
     fbDb=firebase.database(app);
+    fbAuth=firebase.auth(app);
+    fbAuth.onAuthStateChanged(onAuthChange);
     fbDb.ref('.info/connected').on('value',snap=>{setSy(snap.val()===true);});
     fbReady=true;
     return true;
   }catch(e){console.error('Firebase init:',e);return false;}
+}
+
+// ── LOGIN (Firebase Auth e-mail/senha) ──
+function onAuthChange(user){
+  const ov=ge('login-ov');
+  if(user && user.isAnonymous){ fbAuth.signOut(); return; } // descarta sessões anônimas antigas
+  if(user){ ov.style.display='none'; startRealtimeSync(); }
+  else { ov.style.display='flex'; }
+}
+function doLogin(){
+  const em=ge('lg-email').value.trim(), pw=ge('lg-pass').value, er=ge('lg-err'), bt=ge('lg-btn');
+  er.textContent='';
+  if(!em||!pw){ er.textContent='Preencha e-mail e senha.'; return; }
+  if(!initFB()){ er.textContent='Firebase não conectado.'; return; }
+  bt.disabled=true; bt.textContent='Entrando...';
+  fbAuth.signInWithEmailAndPassword(em,pw).then(()=>{ ge('lg-pass').value=''; }).catch(e=>{
+    const m={'auth/invalid-credential':'E-mail ou senha incorretos.','auth/wrong-password':'E-mail ou senha incorretos.','auth/user-not-found':'E-mail ou senha incorretos.','auth/invalid-email':'E-mail inválido.','auth/too-many-requests':'Muitas tentativas. Aguarde um pouco.','auth/network-request-failed':'Sem conexão com a internet.','auth/operation-not-allowed':'Login por e-mail/senha não está ativado no Firebase.'};
+    er.textContent=m[e.code]||('Erro: '+e.code);
+  }).finally(()=>{ bt.disabled=false; bt.textContent='Entrar'; });
+}
+function doReset(){
+  const em=ge('lg-email').value.trim(), er=ge('lg-err');
+  if(!em){ er.textContent='Digite seu e-mail e toque de novo em "Esqueci a senha".'; return; }
+  fbAuth.sendPasswordResetEmail(em).then(()=>{ er.style.color='#0F766E'; er.textContent='Link de redefinição enviado para o e-mail.'; }).catch(e=>{ er.style.color='#DC2626'; er.textContent='Erro: '+e.code; });
+}
+function doLogout(){
+  if(!fbAuth) return;
+  fbAuth.signOut().then(()=>location.reload());
 }
 function fbColl(name){ return fbDb.ref('medvisit/dados/'+name); }
 // Aceita tanto o formato antigo (array, de versões anteriores) quanto o novo
@@ -1199,6 +1242,7 @@ function mergeById(localArr, remoteArr){
 }
 function startRealtimeSync(){
   if(!initFB()||fbListenersOn) return;
+  if(!fbAuth||!fbAuth.currentUser||fbAuth.currentUser.isAnonymous) return;
   fbListenersOn=true;
   fbColl('visits').on('value',snap=>{
     const arr=collToArray(snap.val());
