@@ -3591,13 +3591,16 @@ function rOrc(){
     return true;
   });
 
-  // Ordem crescente pelo número do orçamento (sem número vai para o fim)
+  // Mais recente primeiro (pela data); empate desempata pelo nº do orçamento (maior primeiro).
+  // Sem data vai para o fim.
   filt.sort((a,b)=>{
-    const na=String(a.num||'').trim(), nb=String(b.num||'').trim();
-    if(!na && !nb) return 0;
-    if(!na) return 1;
-    if(!nb) return -1;
-    return na.localeCompare(nb,'pt-BR',{numeric:true});
+    const da=a.data||'', db=b.data||'';
+    if(da!==db){
+      if(!da) return 1;
+      if(!db) return -1;
+      return db.localeCompare(da);
+    }
+    return String(b.num||'').localeCompare(String(a.num||''),'pt-BR',{numeric:true});
   });
 
   const countInfo=ge('orc-count-info');
