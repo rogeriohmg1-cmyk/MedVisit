@@ -1,0 +1,106 @@
+Option Explicit
+
+' ====== CONFIGURE AQUI ======
+Private Const URL_API As String = "https://SEU-PROJETO.vercel.app/api/email-agenda"
+Private Const TOKEN As String = "COLE_AQUI_O_MESMO_VALOR_DO_EMAIL_TOKEN"
+' ============================
+
+' Roda sozinho a cada e-mail novo que chega
+Private Sub Application_NewMailEx(ByVal EntryIDCollection As String)
+    Dim ids() As String, i As Long, it As Object
+    ids = Split(EntryIDCollection, ",")
+    For i = LBound(ids) To UBound(ids)
+        Set it = Nothing
+        On Error Resume Next
+        Set it = Application.Session.GetItemFromID(ids(i))
+        On Error GoTo 0
+        If Not it Is Nothing Then
+            If it.Class = 43 Then Enviar it, False
+        End If
+    Next i
+End Sub
+
+' Para testar / reprocessar: selecione o e-mail e rode esta macro (Alt+F8)
+Public Sub ImportarSelecionado()
+    If Application.ActiveExplorer.Selection.Count = 0 Then
+        MsgBox "Selecione um e-mail primeiro.": Exit Sub
+    End If
+    Enviar Application.ActiveExplorer.Selection(1), True
+End Sub
+
+Private Sub Enviar(ByVal it As Object, ByVal manual As Boolean)
+    Dim assunto As String, u As String
+    assunto = it.Subject
+    u = UCase(Trim(assunto))
+
+    If Not manual Then
+        If InStr(u, "AGENDAMENTO") = 0 Then Exit Sub
+        If Left(u, 3) = "RE:" Or Left(u, 4) = "RES:" Or Left(u, 4) = "ENC:" _
+           Or Left(u, 3) = "FW:" Or Left(u, 4) = "FWD:" Then Exit Sub
+    End If
+
+    Dim corpo As String
+    corpo = Left(it.Body, 20000)
+
+    Dim json As String
+    json = "{""subject"":""" & J(assunto) & """,""from"":""" & J(Remetente(it)) & _
+           """,""body"":""" & J(corpo) & """,""forcar"":" & IIf(manual, "true", "false") & "}"
+
+    Dim http As Object, status As Long, resp As String
+    On Error GoTo falhou
+    Set http = CreateObject("MSXML2.ServerXMLHTTP.6.0")
+    http.setTimeouts 5000, 5000, 15000, 30000
+    http.Open "POST", URL_API, False
+    http.setRequestHeader "Content-Type", "application/json; charset=utf-8"
+    http.setRequestHeader "x-token", TOKEN
+    http.send json
+    status = http.status
+    resp = http.responseText
+
+    If status = 200 Then
+        If InStr(resp, """ignorado""") = 0 Then Marcar it, "MedVisit"
+        If manual Then MsgBox "OK: " & resp
+    Else
+        Marcar it, "MedVisit ERRO"
+        If manual Then MsgBox "Erro " & status & ": " & resp
+    End If
+    Exit Sub
+
+falhou:
+    Marcar it, "MedVisit ERRO"
+    If manual Then MsgBox "Falha de conexão: " & Err.Description
+End Sub
+
+Private Sub Marcar(ByVal it As Object, ByVal cat As String)
+    On Error Resume Next
+    it.Categories = cat
+    it.Save
+End Sub
+
+Private Function Remetente(ByVal it As Object) As String
+    Dim e As String
+    e = it.SenderEmailAddress
+    If it.SenderEmailType = "EX" Then
+        On Error Resume Next
+        e = it.Sender.GetExchangeUser.PrimarySmtpAddress
+        On Error GoTo 0
+    End If
+    Remetente = e
+End Function
+
+' Escapa texto para JSON
+Private Function J(ByVal s As String) As String
+    Dim i As Long, c As String, r As String, n As Long
+    s = Replace(s, "\", "\\")
+    s = Replace(s, """", "\""")
+    s = Replace(s, vbCrLf, "\n")
+    s = Replace(s, vbCr, "\n")
+    s = Replace(s, vbLf, "\n")
+    s = Replace(s, vbTab, "\t")
+    For i = 1 To Len(s)
+        c = Mid$(s, i, 1)
+        n = AscW(c)
+        If n >= 0 And n < 32 Then r = r & " " Else r = r & c
+    Next i
+    J = r
+End Function
