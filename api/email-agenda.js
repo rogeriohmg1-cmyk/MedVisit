@@ -32,7 +32,7 @@ function hojeBR() {
   return { y, m, d };
 }
 
-function parseData(txt) {
+function parseData(txt, ref) {
   const m = /(\d{1,2})\s*\/\s*(\d{1,2})(?:\s*\/\s*(\d{2,4}))?/.exec(txt || '');
   if (!m) return null;
   const dia = +m[1], mes = +m[2];
@@ -42,9 +42,9 @@ function parseData(txt) {
     ano = +m[3];
     if (ano < 100) ano += 2000;
   } else {
-    const h = hojeBR();
+    const h = ref || hojeBR();
     ano = h.y;
-    // sem ano no e-mail: usa o ano atual; se a data já passou há mais de 7 dias, é do ano que vem
+    // sem ano no e-mail: usa o ano do recebimento; se a data é mais de 7 dias antes dele, é do ano que vem
     if (Date.UTC(ano, mes - 1, dia) < Date.UTC(h.y, h.m - 1, h.d) - 7 * 86400000) ano += 1;
   }
   return `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
@@ -58,7 +58,13 @@ function parseHora(txt) {
   return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
 }
 
-function parseEmail({ subject = '', from = '', body = '' }) {
+function refDe(recebido) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(recebido || ''));
+  return m ? { y: +m[1], m: +m[2], d: +m[3] } : null;
+}
+
+function parseEmail({ subject = '', from = '', body = '', recebido = '' }) {
+  const ref = refDe(recebido);
   const linhas = String(body).replace(/\u00a0/g, ' ').split(/\r?\n/).map(l => l.replace(/\s+/g, ' ').trim());
   const pega = (re) => {
     for (const l of linhas) { const m = re.exec(l); if (m) return m[1].trim(); }
@@ -109,7 +115,7 @@ function parseEmail({ subject = '', from = '', body = '' }) {
 
   return {
     hospital, hospitalConhecido: !!hit, medico, paciente, convenio, procedimento,
-    data: parseData(dataTxt), hora: parseHora(horaTxt), material, entrega,
+    data: parseData(dataTxt, ref), hora: parseHora(horaTxt), material, entrega,
   };
 }
 
@@ -126,14 +132,14 @@ async function handler(req, res) {
     return res.status(401).json({ error: 'token inválido' });
   }
 
-  const { subject = '', from = '', body = '', forcar = false } = req.body || {};
+  const { subject = '', from = '', body = '', forcar = false, recebido = '' } = req.body || {};
   const u = String(subject).trim().toUpperCase();
   if (!forcar) {
     if (!u.includes('AGENDAMENTO')) return res.status(200).json({ ok: true, ignorado: 'assunto sem AGENDAMENTO' });
     if (/^(RES|RE|ENC|FW|FWD)\s*:/.test(u)) return res.status(200).json({ ok: true, ignorado: 'é resposta/encaminhamento' });
   }
 
-  const d = parseEmail({ subject, from, body: String(body).slice(0, 20000) });
+  const d = parseEmail({ subject, from, body: String(body).slice(0, 20000), recebido });
   if (!d.paciente || !d.data) {
     return res.status(422).json({ error: 'não achei paciente e/ou data no e-mail', lido: d });
   }
@@ -158,10 +164,16 @@ async function handler(req, res) {
         databaseURL: process.env.FIREBASE_DB_URL,
       });
     }
-    const ref = admin.database().ref('medvisit/dados/agendamentos/' + id);
-    const snap = await ref.once('value');
-    if (snap.exists()) return res.status(200).json({ ok: true, existente: true, id });
-    await ref.set(rec);
+    const colecao = admin.database().ref('medvisit/dados/agendamentos');
+    const todos = (await colecao.once('value')).val() || {};
+    if (todos[id]) return res.status(200).json({ ok: true, existente: true, id });
+    // já existe compromisso no mesmo dia com o nome do paciente (ex.: criado à mão)?
+    const chave = norm(d.paciente).split(' ').filter(Boolean).slice(0, 2).join(' ');
+    if (chave.length >= 4) {
+      const parecido = Object.values(todos).find(a => a && a.data === d.data && norm(a.desc).includes(chave));
+      if (parecido) return res.status(200).json({ ok: true, existente: true, motivo: 'já havia compromisso do paciente nesse dia', id: parecido.id });
+    }
+    await colecao.child(id).set(rec);
     return res.status(200).json({ ok: true, id, data: rec.data, hora: rec.hora, desc, hospitalConhecido: d.hospitalConhecido });
   } catch (e) {
     console.error('email-agenda', e);
