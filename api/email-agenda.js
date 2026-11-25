@@ -6,6 +6,9 @@ const crypto = require('crypto');
 const HOSPITAIS = [
   ['hospitaldabaleia', 'Hospital da Baleia'],
   ['santacasabh.org.br', 'Santa Casa'],
+  ['grupoorizonti.com.br', 'Grupo Orizonti'],
+  ['atendimento.belinimaia@gmail.com', 'Belini Maia'],
+  ['administrativo@implaminas.com.br', 'Implaminas'],
 ];
 
 const TZ = 'America/Sao_Paulo';
